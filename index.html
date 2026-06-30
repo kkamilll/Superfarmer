@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Super Farmer Pro — Gra Planszowa</title>
+    <meta name="description" content="Cyfrowy odpowiednik klasycznej polskiej gry planszowej Super Farmer. Hoduj zwierzęta, wymieniaj je i jako pierwszy zbierz wszystkie gatunki!" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+
+    <!-- ===== EKRAN STARTOWY ===== -->
+    <div id="startScreen">
+      <div class="start-animals"><span>🐰</span><span>🐑</span><span>🐷</span><span>🐮</span><span>🐴</span></div>
+      <div class="start-logo">Super Farmer</div>
+      <div class="start-subtitle">Klasyczna gra planszowa</div>
+
+      <div class="start-card">
+        <label>Tryb gry</label>
+        <div class="mode-selector">
+          <button class="mode-btn selected" id="mode2p" onclick="selectMode('2p')">👥 2 Graczy</button>
+          <button class="mode-btn" id="modeAI" onclick="selectMode('ai')">🤖 Gracz vs AI</button>
+        </div>
+
+        <label>Imię Gracza 1</label>
+        <input class="start-input" id="player1Name" type="text" value="Gracz 1" maxlength="16" />
+
+        <div id="player2NameWrap">
+          <label>Imię Gracza 2</label>
+          <input class="start-input" id="player2Name" type="text" value="Gracz 2" maxlength="16" />
+        </div>
+
+        <button class="btn-start" onclick="startGame()">🌾 Rozpocznij Grę</button>
+      </div>
+    </div>
+
+    <!-- ===== KONFETTI ===== -->
+    <canvas id="confettiCanvas"></canvas>
+
+    <!-- ===== GŁÓWNA GRA ===== -->
+    <div id="gameScreen">
+
+      <!-- Header -->
+      <div class="game-header">
+        <div class="game-title">🌾 Super Farmer Pro</div>
+        <div class="turn-badge" id="turnBadge">Tura: Gracz 1</div>
+        <button class="rules-btn" onclick="toggleRules()">📖 Zasady</button>
+      </div>
+
+      <!-- Stado Główne -->
+      <div class="herd-section">
+        <div class="section-title">🏦 Stado Główne (Bank)</div>
+        <div class="herd-grid" id="herdDisplay"></div>
+      </div>
+
+      <!-- Obszar gry -->
+      <div class="game-area">
+
+        <!-- Gracz 1 -->
+        <div id="p1Card" class="player-card active">
+          <div class="player-header">
+            <div class="player-name" id="p1Label">Gracz 1</div>
+            <div class="player-type-badge" id="p1TypeBadge">Człowiek</div>
+          </div>
+          <div class="farm-grid" id="p1-farm"></div>
+          <div class="progress-section">
+            <div class="progress-label"><span>Postęp</span><span id="p1-progress-label">0/5</span></div>
+            <div class="progress-bar-wrap"><div class="progress-bar" id="p1-progress"></div></div>
+          </div>
+        </div>
+
+        <!-- Panel centralny -->
+        <div id="mainContainer">
+          <div class="dice-area">
+            <div class="dice-row">
+              <div class="dice-wrapper">
+                <div class="die" id="die1">🎲</div>
+                <div class="die-label">Kostka 1</div>
+              </div>
+              <div class="dice-wrapper">
+                <div class="die" id="die2">🎲</div>
+                <div class="die-label">Kostka 2</div>
+              </div>
+            </div>
+            <div class="dice-result-text" id="diceResult">Rzuć kostkami aby zacząć!</div>
+          </div>
+
+          <button class="btn-throw" id="throwBtn" onclick="handleThrow()">🎲 RZUT KOSTKAMI</button>
+
+          <div class="message-box">
+            <div class="message-box-header">📋 Historia zdarzeń</div>
+            <div class="message-box-content" id="logContent"></div>
+          </div>
+        </div>
+
+        <!-- Gracz 2 -->
+        <div id="p2Card" class="player-card">
+          <div class="player-header">
+            <div class="player-name" id="p2Label">Gracz 2</div>
+            <div class="player-type-badge" id="p2TypeBadge">Człowiek</div>
+          </div>
+          <div class="farm-grid" id="p2-farm"></div>
+          <div class="progress-section">
+            <div class="progress-label"><span>Postęp</span><span id="p2-progress-label">0/5</span></div>
+            <div class="progress-bar-wrap"><div class="progress-bar" id="p2-progress"></div></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Rynek Wymiany -->
+      <div class="exchange-section">
+        <div class="section-title">🔄 Rynek Wymiany</div>
+        <div class="exchange-grid" id="exchangeTools"></div>
+      </div>
+
+    </div>
+
+    <!-- ===== EKRAN WYGRANEJ ===== -->
+    <div id="winnerScreen">
+      <div class="winner-content">
+        <div class="winner-trophy">🏆</div>
+        <div class="winner-title">ZWYCIĘSTWO!</div>
+        <div class="winner-name" id="winnerName">Gracz 1 wygrywa!</div>
+      </div>
+      <button class="btn-restart" onclick="location.reload()">🔄 Zagraj ponownie</button>
+    </div>
+
+    <!-- ===== MODAL ZASAD ===== -->
+    <div id="rulesModal" onclick="closeRulesOnBg(event)">
+      <div class="rules-content">
+        <h2>📖 Zasady — Super Farmer</h2>
+        <h3>🎯 Cel gry</h3>
+        <p>Jako pierwszy zdobądź co najmniej 1 sztukę każdego gatunku zwierzęcia: królika, owcę, świnię, krowę i konia.</p>
+        <h3>🎲 Przebieg tury</h3>
+        <ul>
+          <li>Aktywny gracz rzuca dwiema kostkami.</li>
+          <li>Każda kostka pokazuje zwierzę (lub drapieżnika).</li>
+          <li>Gracz otrzymuje ze stada połowę sumy: <em>(zwierzęta na farmie + wyniki kostek) ÷ 2</em> sztuk każdego gatunku.</li>
+          <li>Wymiany możliwe przed lub po rzucie.</li>
+        </ul>
+        <h3>🐺 Wilk</h3>
+        <p>Jeśli na kostce 1 wypadnie wilk, zjada wszystkie zwierzęta z farmy <strong>oprócz konia i dużego psa</strong>. Duży pies chroni farmę (ale sam ginie).</p>
+        <h3>🦊 Lis</h3>
+        <p>Jeśli na kostce 2 wypadnie lis, zjada wszystkich <strong>królików</strong>. Mały pies chroni (ale sam ginie).</p>
+        <h3>🔄 Wymiana</h3>
+        <ul>
+          <li>6 królików = 1 owca</li>
+          <li>2 owce = 1 świnia</li>
+          <li>3 świnie = 1 krowa</li>
+          <li>2 krowy = 1 koń</li>
+          <li>1 owca = 1 mały pies</li>
+          <li>1 krowa = 1 duży pies</li>
+        </ul>
+        <h3>🤖 Tryb AI</h3>
+        <p>Komputer automatycznie wykonuje optymalną strategię wymiany po każdym rzucie.</p>
+        <button class="close-modal" onclick="toggleRules()">Zamknij</button>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
