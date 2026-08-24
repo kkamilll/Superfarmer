@@ -1,160 +1,472 @@
 <!doctype html>
-<html lang="pl">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Super Farmer Pro — Gra Planszowa</title>
-    <meta name="description" content="Cyfrowy odpowiednik klasycznej polskiej gry planszowej Super Farmer. Hoduj zwierzęta, wymieniaj je i jako pierwszy zbierz wszystkie gatunki!" />
+    <title>Super Farmer Pro — Board Game</title>
+    <meta name="description" content="Digital adaptation of the classic board game Super Farmer. Breed animals, trade on the market, defend against wolf and fox, and be the first to collect all 5 species!" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
 
-    <!-- ===== EKRAN STARTOWY ===== -->
+    <!-- ===== START SCREEN ===== -->
     <div id="startScreen">
-      <div class="start-animals"><span>🐰</span><span>🐑</span><span>🐷</span><span>🐮</span><span>🐴</span></div>
-      <div class="start-logo">Super Farmer</div>
-      <div class="start-subtitle">Klasyczna gra planszowa</div>
+      <div class="start-glow-bg"></div>
+      <div class="start-animals">
+        <span title="Rabbit">🐰</span>
+        <span title="Sheep">🐑</span>
+        <span title="Pig">🐷</span>
+        <span title="Cow">🐮</span>
+        <span title="Horse">🐴</span>
+      </div>
+      <h1 class="start-logo">Super Farmer <span class="logo-pro">PRO</span></h1>
+      <div class="start-subtitle">Classic board game in a modern digital edition</div>
 
       <div class="start-card">
-        <label>Tryb gry</label>
-        <div class="mode-selector">
-          <button class="mode-btn selected" id="mode2p" onclick="selectMode('2p')">👥 2 Graczy</button>
-          <button class="mode-btn" id="modeAI" onclick="selectMode('ai')">🤖 Gracz vs AI</button>
+        <div class="start-field-group">
+          <label>Select Game Mode</label>
+          <div class="mode-selector">
+            <button class="mode-btn selected" id="mode2p" onclick="selectMode('2p')">
+              <span class="mode-icon">👥</span>
+              <span class="mode-title">2 Players</span>
+              <span class="mode-desc">Local Pass & Play</span>
+            </button>
+            <button class="mode-btn" id="modeAI" onclick="selectMode('ai')">
+              <span class="mode-icon">🤖</span>
+              <span class="mode-title">Player vs AI</span>
+              <span class="mode-desc">Duel with Computer</span>
+            </button>
+          </div>
         </div>
 
-        <label>Imię Gracza 1</label>
-        <input class="start-input" id="player1Name" type="text" value="Gracz 1" maxlength="16" />
-
-        <div id="player2NameWrap">
-          <label>Imię Gracza 2</label>
-          <input class="start-input" id="player2Name" type="text" value="Gracz 2" maxlength="16" />
+        <div class="start-field-group">
+          <label for="player1Name">Player 1 Name (Farmer)</label>
+          <div class="input-with-icon">
+            <span class="input-icon">🧑‍🌾</span>
+            <input class="start-input" id="player1Name" type="text" value="Player 1" maxlength="16" placeholder="Enter name..." />
+          </div>
         </div>
 
-        <button class="btn-start" onclick="startGame()">🌾 Rozpocznij Grę</button>
+        <div class="start-field-group" id="player2NameWrap">
+          <label for="player2Name">Player 2 Name (Farmer)</label>
+          <div class="input-with-icon">
+            <span class="input-icon">🧑‍🌾</span>
+            <input class="start-input" id="player2Name" type="text" value="Player 2" maxlength="16" placeholder="Enter name..." />
+          </div>
+        </div>
+
+        <button class="btn-start" onclick="startGame()">
+          <span>🌾 START GAME</span>
+        </button>
       </div>
     </div>
 
-    <!-- ===== KONFETTI ===== -->
+    <!-- ===== CONFETTI ===== -->
     <canvas id="confettiCanvas"></canvas>
 
-    <!-- ===== GŁÓWNA GRA ===== -->
+    <!-- ===== FLOATING DELTA CONTAINER ===== -->
+    <div id="floatingDeltaContainer"></div>
+
+    <!-- ===== MAIN GAME SCREEN ===== -->
     <div id="gameScreen">
 
       <!-- Header -->
-      <div class="game-header">
-        <div class="game-title">🌾 Super Farmer Pro</div>
-        <div class="turn-badge" id="turnBadge">Tura: Gracz 1</div>
-        <button class="rules-btn" onclick="toggleRules()">📖 Zasady</button>
-      </div>
+      <header class="game-header">
+        <div class="header-left">
+          <div class="game-title">
+            <span class="title-icon">🌾</span>
+            <span class="title-text">Super Farmer <span class="badge-mini">PRO</span></span>
+          </div>
+        </div>
 
-      <!-- Stado Główne -->
-      <div class="herd-section">
-        <div class="section-title">🏦 Stado Główne (Bank)</div>
+        <div class="header-center">
+          <div class="turn-badge-container">
+            <div class="turn-badge" id="turnBadge">
+              <span class="turn-dot"></span>
+              <span id="turnBadgeText">Turn: Player 1</span>
+            </div>
+            <div class="turn-phase-indicator" id="turnPhaseIndicator">Step 1: Trade or roll the dice</div>
+          </div>
+        </div>
+
+        <div class="header-right">
+          <button class="icon-btn" id="soundToggleBtn" onclick="toggleSound()" title="Toggle Sound" aria-label="Sound">
+            <span id="soundIcon">🔊</span>
+          </button>
+          <button class="header-btn" onclick="promptNewGame()" title="Start a New Game">
+            <span>🔄 New Game</span>
+          </button>
+          <button class="header-btn rules-highlight" onclick="toggleRules()" title="View Game Rules">
+            <span>📖 Rules</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Herd (Bank) -->
+      <section class="herd-section" aria-label="Bank Herd Stock">
+        <div class="section-title-wrap">
+          <span class="section-title">🏦 Main Herd (Bank Stock)</span>
+          <span class="section-subtitle">Available pool of animals to breed and trade</span>
+        </div>
         <div class="herd-grid" id="herdDisplay"></div>
-      </div>
+      </section>
 
-      <!-- Obszar gry -->
-      <div class="game-area">
+      <!-- Game Area (Player Cards + Central Panel) -->
+      <main class="game-area">
 
-        <!-- Gracz 1 -->
+        <!-- Player 1 -->
         <div id="p1Card" class="player-card active">
           <div class="player-header">
-            <div class="player-name" id="p1Label">Gracz 1</div>
-            <div class="player-type-badge" id="p1TypeBadge">Człowiek</div>
-          </div>
-          <div class="farm-grid" id="p1-farm"></div>
-          <div class="progress-section">
-            <div class="progress-label"><span>Postęp</span><span id="p1-progress-label">0/5</span></div>
-            <div class="progress-bar-wrap"><div class="progress-bar" id="p1-progress"></div></div>
-          </div>
-        </div>
-
-        <!-- Panel centralny -->
-        <div id="mainContainer">
-          <div class="dice-area">
-            <div class="dice-row">
-              <div class="dice-wrapper">
-                <div class="die" id="die1">🎲</div>
-                <div class="die-label">Kostka 1</div>
-              </div>
-              <div class="dice-wrapper">
-                <div class="die" id="die2">🎲</div>
-                <div class="die-label">Kostka 2</div>
+            <div class="player-identity">
+              <div class="player-avatar" id="p1Avatar">🧑‍🌾</div>
+              <div>
+                <div class="player-name" id="p1Label">Player 1</div>
+                <div class="player-type-badge" id="p1TypeBadge">Farmer</div>
               </div>
             </div>
-            <div class="dice-result-text" id="diceResult">Rzuć kostkami aby zacząć!</div>
+            <div class="player-turn-tag" id="p1TurnTag">YOUR TURN</div>
           </div>
 
-          <button class="btn-throw" id="throwBtn" onclick="handleThrow()">🎲 RZUT KOSTKAMI</button>
+          <!-- Victory Collection -->
+          <div class="victory-collection-box">
+            <div class="collection-header">
+              <span>🏆 Victory Collection (Goal: 5/5)</span>
+              <span class="collection-counter" id="p1-progress-label">0 / 5</span>
+            </div>
+            <div class="victory-icons-row" id="p1VictoryIcons">
+              <div class="vic-icon-slot" data-animal="krolik" id="p1-vic-krolik" title="Required: Rabbit">
+                <span class="vic-emoji">🐰</span>
+                <span class="vic-status">❌</span>
+              </div>
+              <div class="vic-icon-slot" data-animal="owca" id="p1-vic-owca" title="Required: Sheep">
+                <span class="vic-emoji">🐑</span>
+                <span class="vic-status">❌</span>
+              </div>
+              <div class="vic-icon-slot" data-animal="swinia" id="p1-vic-swinia" title="Required: Pig">
+                <span class="vic-emoji">🐷</span>
+                <span class="vic-status">❌</span>
+              </div>
+              <div class="vic-icon-slot" data-animal="krowa" id="p1-vic-krowa" title="Required: Cow">
+                <span class="vic-emoji">🐮</span>
+                <span class="vic-status">❌</span>
+              </div>
+              <div class="vic-icon-slot" data-animal="kon" id="p1-vic-kon" title="Required: Horse">
+                <span class="vic-emoji">🐴</span>
+                <span class="vic-status">❌</span>
+              </div>
+            </div>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar" id="p1-progress"></div>
+            </div>
+          </div>
 
+          <!-- Dog Defense Shields -->
+          <div class="defense-status-row">
+            <div class="defense-badge" id="p1-def-fox" title="Small Dog defends rabbits against the fox">
+              <span class="def-icon">🐕</span>
+              <div class="def-info">
+                <span class="def-label">Fox Defense 🦊</span>
+                <span class="def-state" id="p1-def-fox-state">No Dog ⚠️</span>
+              </div>
+            </div>
+            <div class="defense-badge" id="p1-def-wolf" title="Big Dog defends all animals against the wolf">
+              <span class="def-icon">🐩</span>
+              <div class="def-info">
+                <span class="def-label">Wolf Defense 🐺</span>
+                <span class="def-state" id="p1-def-wolf-state">No Dog ⚠️</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Farm Animals -->
+          <div class="farm-section-header">🐾 Farm Inventory:</div>
+          <div class="farm-grid" id="p1-farm"></div>
+        </div>
+
+        <!-- Central Panel (Dice, Turn Actions, Logs) -->
+        <div id="mainContainer">
+          
+          <!-- Dice Area -->
+          <div class="dice-area">
+            <div class="dice-status-header">
+              <span class="dice-header-tag" id="dicePhaseTag">PHASE 1: ROLL OR TRADE</span>
+            </div>
+
+            <div class="dice-row">
+              <div class="dice-wrapper">
+                <div class="die" id="die1" title="Die 1 (Contains wolf)">
+                  <span class="die-face">🎲</span>
+                </div>
+                <div class="die-label">Die 1 (Orange)</div>
+              </div>
+              <div class="dice-wrapper">
+                <div class="die" id="die2" title="Die 2 (Contains fox)">
+                  <span class="die-face">🎲</span>
+                </div>
+                <div class="die-label">Die 2 (Blue)</div>
+              </div>
+            </div>
+
+            <div class="dice-result-text" id="diceResult">Click the button below to roll the dice!</div>
+
+            <!-- Calculation Breakdown Box -->
+            <div class="calc-breakdown-box" id="calcBreakdown" style="display: none;">
+              <div class="calc-header">🧮 Profit Calculation Breakdown</div>
+              <div class="calc-body" id="calcBreakdownText"></div>
+            </div>
+          </div>
+
+          <!-- Turn Action Buttons -->
+          <div class="turn-actions-row">
+            <button class="btn-throw" id="throwBtn" onclick="handleThrow()">
+              <span class="btn-throw-icon">🎲</span>
+              <span class="btn-throw-text">ROLL DICE</span>
+            </button>
+            <button class="btn-end-turn" id="endTurnBtn" onclick="handleEndTurn()" disabled>
+              <span class="btn-end-icon">➡️</span>
+              <span class="btn-end-text">END TURN</span>
+            </button>
+          </div>
+
+          <!-- Event Log Box -->
           <div class="message-box">
-            <div class="message-box-header">📋 Historia zdarzeń</div>
+            <div class="message-box-header">
+              <span>📋 Event History</span>
+              <button class="log-clear-btn" onclick="clearLogs()" title="Clear logs">Clear</button>
+            </div>
             <div class="message-box-content" id="logContent"></div>
           </div>
+
         </div>
 
-        <!-- Gracz 2 -->
+        <!-- Player 2 -->
         <div id="p2Card" class="player-card">
           <div class="player-header">
-            <div class="player-name" id="p2Label">Gracz 2</div>
-            <div class="player-type-badge" id="p2TypeBadge">Człowiek</div>
+            <div class="player-identity">
+              <div class="player-avatar" id="p2Avatar">🧑‍🌾</div>
+              <div>
+                <div class="player-name" id="p2Label">Player 2</div>
+                <div class="player-type-badge" id="p2TypeBadge">Farmer</div>
+              </div>
+            </div>
+            <div class="player-turn-tag" id="p2TurnTag">YOUR TURN</div>
           </div>
+
+          <!-- Victory Collection -->
+          <div class="victory-collection-box">
+            <div class="collection-header">
+              <span>🏆 Victory Collection (Goal: 5/5)</span>
+              <span class="collection-counter" id="p2-progress-label">0 / 5</span>
+            </div>
+            <div class="victory-icons-row" id="p2VictoryIcons">
+              <div class="vic-icon-slot" data-animal="krolik" id="p2-vic-krolik" title="Required: Rabbit">
+                <span class="vic-emoji">🐰</span>
+                <span class="vic-status">❌</span>
+              </div>
+              <div class="vic-icon-slot" data-animal="owca" id="p2-vic-owca" title="Required: Sheep">
+                <span class="vic-emoji">🐑</span>
+                <span class="vic-status">❌</span>
+              </div>
+              <div class="vic-icon-slot" data-animal="swinia" id="p2-vic-swinia" title="Required: Pig">
+                <span class="vic-emoji">🐷</span>
+                <span class="vic-status">❌</span>
+              </div>
+              <div class="vic-icon-slot" data-animal="krowa" id="p2-vic-krowa" title="Required: Cow">
+                <span class="vic-emoji">🐮</span>
+                <span class="vic-status">❌</span>
+              </div>
+              <div class="vic-icon-slot" data-animal="kon" id="p2-vic-kon" title="Required: Horse">
+                <span class="vic-emoji">🐴</span>
+                <span class="vic-status">❌</span>
+              </div>
+            </div>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar" id="p2-progress"></div>
+            </div>
+          </div>
+
+          <!-- Dog Defense Shields -->
+          <div class="defense-status-row">
+            <div class="defense-badge" id="p2-def-fox" title="Small Dog defends rabbits against the fox">
+              <span class="def-icon">🐕</span>
+              <div class="def-info">
+                <span class="def-label">Fox Defense 🦊</span>
+                <span class="def-state" id="p2-def-fox-state">No Dog ⚠️</span>
+              </div>
+            </div>
+            <div class="defense-badge" id="p2-def-wolf" title="Big Dog defends all animals against the wolf">
+              <span class="def-icon">🐩</span>
+              <div class="def-info">
+                <span class="def-label">Wolf Defense 🐺</span>
+                <span class="def-state" id="p2-def-wolf-state">No Dog ⚠️</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Farm Animals -->
+          <div class="farm-section-header">🐾 Farm Inventory:</div>
           <div class="farm-grid" id="p2-farm"></div>
-          <div class="progress-section">
-            <div class="progress-label"><span>Postęp</span><span id="p2-progress-label">0/5</span></div>
-            <div class="progress-bar-wrap"><div class="progress-bar" id="p2-progress"></div></div>
+        </div>
+
+      </main>
+
+      <!-- Animal Exchange Market -->
+      <section class="exchange-section" aria-label="Animal Exchange Market">
+        
+        <!-- Header & Value Ladder -->
+        <div class="exchange-header-wrap">
+          <div>
+            <div class="section-title">🔄 Animal Exchange Market</div>
+            <div class="exchange-desc">Trade animals freely at any point during your turn (before or after rolling dice).</div>
+          </div>
+
+          <!-- Value Ladder -->
+          <div class="value-ladder">
+            <div class="ladder-title">📊 Value Hierarchy:</div>
+            <div class="ladder-steps">
+              <span class="ladder-step" title="6 Rabbits = 1 Sheep">6🐰 = 1🐑</span>
+              <span class="ladder-arrow">➜</span>
+              <span class="ladder-step" title="2 Sheep = 1 Pig">2🐑 = 1🐷</span>
+              <span class="ladder-arrow">➜</span>
+              <span class="ladder-step" title="3 Pigs = 1 Cow">3🐷 = 1🐮</span>
+              <span class="ladder-arrow">➜</span>
+              <span class="ladder-step" title="2 Cows = 1 Horse">2🐮 = 1🐴</span>
+              <span class="ladder-divider">|</span>
+              <span class="ladder-step dog-step" title="1 Sheep = 1 Small Dog">1🐑 = 1🐕</span>
+              <span class="ladder-step dog-step" title="1 Cow = 1 Big Dog">1🐮 = 1🐩</span>
+            </div>
           </div>
         </div>
 
-      </div>
+        <!-- Filter Tabs -->
+        <div class="exchange-filters">
+          <button class="filter-tab active" data-category="all" onclick="filterTrades('all')">
+            🌟 All Trades (<span id="count-all">12</span>)
+          </button>
+          <button class="filter-tab" data-category="upgrade" onclick="filterTrades('upgrade')">
+            ⬆️ Upgrades (<span id="count-upgrade">4</span>)
+          </button>
+          <button class="filter-tab" data-category="downgrade" onclick="filterTrades('downgrade')">
+            ⬇️ Downgrades (<span id="count-downgrade">4</span>)
+          </button>
+          <button class="filter-tab" data-category="dogs" onclick="filterTrades('dogs')">
+            🛡️ Guard Dogs (<span id="count-dogs">4</span>)
+          </button>
+        </div>
 
-      <!-- Rynek Wymiany -->
-      <div class="exchange-section">
-        <div class="section-title">🔄 Rynek Wymiany</div>
+        <!-- Exchange Cards Grid -->
         <div class="exchange-grid" id="exchangeTools"></div>
-      </div>
+      </section>
 
     </div>
 
-    <!-- ===== EKRAN WYGRANEJ ===== -->
+    <!-- ===== WINNER SCREEN ===== -->
     <div id="winnerScreen">
       <div class="winner-content">
         <div class="winner-trophy">🏆</div>
-        <div class="winner-title">ZWYCIĘSTWO!</div>
-        <div class="winner-name" id="winnerName">Gracz 1 wygrywa!</div>
+        <div class="winner-title">VICTORY!</div>
+        <div class="winner-name" id="winnerName">Player 1 wins!</div>
+        <div class="winner-subtitle">The farm is complete — all 5 animal species have been gathered!</div>
+        
+        <div class="winner-animals-celebration">
+          <span>🐰</span><span>🐑</span><span>🐷</span><span>🐮</span><span>🐴</span>
+        </div>
+
+        <div class="winner-actions">
+          <button class="btn-restart" onclick="restartToStartScreen()">🔄 Play Again</button>
+        </div>
       </div>
-      <button class="btn-restart" onclick="location.reload()">🔄 Zagraj ponownie</button>
     </div>
 
-    <!-- ===== MODAL ZASAD ===== -->
+    <!-- ===== RULES MODAL ===== -->
     <div id="rulesModal" onclick="closeRulesOnBg(event)">
       <div class="rules-content">
-        <h2>📖 Zasady — Super Farmer</h2>
-        <h3>🎯 Cel gry</h3>
-        <p>Jako pierwszy zdobądź co najmniej 1 sztukę każdego gatunku zwierzęcia: królika, owcę, świnię, krowę i konia.</p>
-        <h3>🎲 Przebieg tury</h3>
-        <ul>
-          <li>Aktywny gracz rzuca dwiema kostkami.</li>
-          <li>Każda kostka pokazuje zwierzę (lub drapieżnika).</li>
-          <li>Gracz otrzymuje ze stada połowę sumy: <em>(zwierzęta na farmie + wyniki kostek) ÷ 2</em> sztuk każdego gatunku.</li>
-          <li>Wymiany możliwe przed lub po rzucie.</li>
-        </ul>
-        <h3>🐺 Wilk</h3>
-        <p>Jeśli na kostce 1 wypadnie wilk, zjada wszystkie zwierzęta z farmy <strong>oprócz konia i dużego psa</strong>. Duży pies chroni farmę (ale sam ginie).</p>
-        <h3>🦊 Lis</h3>
-        <p>Jeśli na kostce 2 wypadnie lis, zjada wszystkich <strong>królików</strong>. Mały pies chroni (ale sam ginie).</p>
-        <h3>🔄 Wymiana</h3>
-        <ul>
-          <li>6 królików = 1 owca</li>
-          <li>2 owce = 1 świnia</li>
-          <li>3 świnie = 1 krowa</li>
-          <li>2 krowy = 1 koń</li>
-          <li>1 owca = 1 mały pies</li>
-          <li>1 krowa = 1 duży pies</li>
-        </ul>
-        <h3>🤖 Tryb AI</h3>
-        <p>Komputer automatycznie wykonuje optymalną strategię wymiany po każdym rzucie.</p>
-        <button class="close-modal" onclick="toggleRules()">Zamknij</button>
+        <div class="rules-modal-header">
+          <h2>📖 Game Rules — Super Farmer Pro</h2>
+          <button class="modal-close-x" onclick="toggleRules()">✕</button>
+        </div>
+
+        <div class="rules-body">
+          <section class="rule-block">
+            <h3>🎯 Objective</h3>
+            <p>Be the first farmer to collect at least <strong>1 animal of each of the 5 main species</strong> on your farm: 🐰 Rabbit, 🐑 Sheep, 🐷 Pig, 🐮 Cow, and 🐴 Horse.</p>
+          </section>
+
+          <section class="rule-block">
+            <h3>🎲 Turn Flow & Herd Breeding</h3>
+            <ol class="rules-list">
+              <li><strong>Phase 1 (Before the roll):</strong> You may execute any available trades on the Market, then click <strong>ROLL DICE</strong>.</li>
+              <li><strong>Herd Breeding:</strong> Count all animals of the rolled species on your farm + the dice. For <em>every full pair (sum ÷ 2)</em>, you receive <strong>1 new animal</strong> from the Bank Herd and add it to your farm!
+                <div style="background: rgba(255,255,255,0.04); padding: 8px 12px; border-radius: 8px; margin-top: 6px; font-size: 0.8rem; line-height: 1.5;">
+                  💡 <strong>Breeding Examples:</strong><br/>
+                  • You have <strong>0</strong> 🐰 + roll <strong>2</strong> 🐰 on dice = 2 total (1 pair) ➔ you get <strong>+1 🐰</strong> (you now have 1).<br/>
+                  • You have <strong>1</strong> 🐰 + roll <strong>1</strong> 🐰 on die = 2 total (1 pair) ➔ you get <strong>+1 🐰</strong> (you now have 2).<br/>
+                  • You have <strong>3</strong> 🐰 + roll <strong>1</strong> 🐰 on die = 4 total (2 pairs) ➔ you get <strong>+2 🐰</strong> (you now have 5).<br/>
+                  • You have <strong>4</strong> 🐰 + roll <strong>2</strong> 🐰 on dice = 6 total (3 pairs) ➔ you get <strong>+3 🐰</strong> (you now have 7).
+                </div>
+              </li>
+              <li><strong>Phase 2 (After the roll):</strong> After collecting newborn animals, you may make further trades. When finished, click <strong>END TURN</strong>.</li>
+            </ol>
+          </section>
+
+          <section class="rule-block danger-block">
+            <h3>🐺 Predators — Wolf and Fox</h3>
+            <div class="predator-cards">
+              <div class="predator-card wolf-card">
+                <div class="predator-head">🐺 Wolf (Die 1)</div>
+                <p>Devours <strong>all animals</strong> from your farm except Horses and Big Dogs! Lost animals return to the bank.</p>
+                <div class="predator-def">🐩 <strong>Big Dog</strong> repels the wolf (the dog is lost and returns to bank, herd is saved).</div>
+              </div>
+              <div class="predator-card fox-card">
+                <div class="predator-head">🦊 Fox (Die 2)</div>
+                <p>Devours <strong>all your Rabbits 🐰</strong> (other species are completely safe). Rabbits return to the bank.</p>
+                <div class="predator-def">🐕 <strong>Small Dog</strong> repels the fox (the dog is lost and returns to bank, rabbits are saved).</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="rule-block">
+            <h3>🔄 Official Exchange Rate Table</h3>
+            <div class="rules-table-wrap">
+              <table class="rules-table">
+                <thead>
+                  <tr>
+                    <th>Give from Farm</th>
+                    <th>Receive from Bank</th>
+                    <th>Strategic Purpose</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>6 🐰 Rabbits</td><td>1 🐑 Sheep</td><td>Upgrade to higher tier animal</td></tr>
+                  <tr><td>2 🐑 Sheep</td><td>1 🐷 Pig</td><td>Upgrade to higher tier animal</td></tr>
+                  <tr><td>3 🐷 Pigs</td><td>1 🐮 Cow</td><td>Upgrade to higher tier animal</td></tr>
+                  <tr><td>2 🐮 Cows</td><td>1 🐴 Horse</td><td>Obtain the ultimate victory species</td></tr>
+                  <tr><td>1 🐑 Sheep</td><td>1 🐕 Small Dog</td><td>Defense against the Fox 🦊</td></tr>
+                  <tr><td>1 🐮 Cow</td><td>1 🐩 Big Dog</td><td>Defense against the Wolf 🐺</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="rules-note"><em>Note:</em> All exchanges work in reverse as well (e.g. 1 Horse = 2 Cows, 1 Big Dog = 1 Cow, etc.).</p>
+          </section>
+        </div>
+
+        <button class="close-modal" onclick="toggleRules()">Got it, back to the game</button>
+      </div>
+    </div>
+
+    <!-- ===== CONFIRM RESET MODAL ===== -->
+    <div id="confirmResetModal" style="display: none;" onclick="closeResetOnBg(event)">
+      <div class="confirm-content">
+        <div class="confirm-icon">⚠️</div>
+        <h3>Start a new game?</h3>
+        <p>Current game progress will be reset.</p>
+        <div class="confirm-actions">
+          <button class="btn-modal-cancel" onclick="closeResetModal()">Cancel</button>
+          <button class="btn-modal-confirm" onclick="confirmResetGame()">Yes, New Game</button>
+        </div>
       </div>
     </div>
 

@@ -1,45 +1,219 @@
 'use strict';
 
-// =============================================
-//  STAŁE — definicje zwierząt i kostek
-// =============================================
+// =============================================================================
+//  SPECIES CONSTANTS & DEFINITIONS
+// =============================================================================
 
 const ANIMALS = {
-  krolik:   { emoji: '🐰', name: 'Królik',    herdStart: 60 },
-  owca:     { emoji: '🐑', name: 'Owca',      herdStart: 24 },
-  swinia:   { emoji: '🐷', name: 'Świnia',    herdStart: 20 },
-  krowa:    { emoji: '🐮', name: 'Krowa',     herdStart: 12 },
-  kon:      { emoji: '🐴', name: 'Koń',       herdStart:  6 },
-  malyPies: { emoji: '🐕', name: 'M. Pies',   herdStart:  4 },
-  duzyPies: { emoji: '🐩', name: 'D. Pies',   herdStart:  2 },
+  krolik:   { emoji: '🐰', name: 'Rabbit',    herdStart: 60, isWinTarget: true  },
+  owca:     { emoji: '🐑', name: 'Sheep',     herdStart: 24, isWinTarget: true  },
+  swinia:   { emoji: '🐷', name: 'Pig',       herdStart: 20, isWinTarget: true  },
+  krowa:    { emoji: '🐮', name: 'Cow',       herdStart: 12, isWinTarget: true  },
+  kon:      { emoji: '🐴', name: 'Horse',     herdStart:  6, isWinTarget: true  },
+  malyPies: { emoji: '🐕', name: 'Small Dog', herdStart:  4, isWinTarget: false },
+  duzyPies: { emoji: '🐩', name: 'Big Dog',   herdStart:  2, isWinTarget: false },
 };
 
 const WIN_ANIMALS = ['krolik', 'owca', 'swinia', 'krowa', 'kon'];
 
-// Kostka 1: 12 ścian (6 królików, 3 owce, 1 świnia, 1 krowa, 1 wilk)
+// Die 1: 12 faces (6 rabbits, 3 sheep, 1 pig, 1 cow, 1 wolf)
 const CUBE1 = ['krolik','krolik','krolik','krolik','krolik','krolik','owca','owca','owca','swinia','krowa','wilk'];
-// Kostka 2: 12 ścian (6 królików, 2 owce, 2 świnie, 1 koń, 1 lis)
+// Die 2: 12 faces (6 rabbits, 2 sheep, 2 pigs, 1 horse, 1 fox)
 const CUBE2 = ['krolik','krolik','krolik','krolik','krolik','krolik','owca','owca','swinia','swinia','kon','lis'];
 
-// Kursy wymiany: [ile z farmy, ile ze stada, gatunek_z, gatunek_na]
+// Catalog of exchange rates
 const TRADES = [
-  [6,  1, 'krolik', 'owca'],
-  [1,  6, 'owca',   'krolik'],
-  [2,  1, 'owca',   'swinia'],
-  [1,  2, 'swinia', 'owca'],
-  [3,  1, 'swinia', 'krowa'],
-  [1,  3, 'krowa',  'swinia'],
-  [2,  1, 'krowa',  'kon'],
-  [1,  2, 'kon',    'krowa'],
-  [1,  1, 'owca',   'malyPies'],
-  [1,  1, 'malyPies','owca'],
-  [1,  1, 'krowa',  'duzyPies'],
-  [1,  1, 'duzyPies','krowa'],
+  // Upgrades
+  { fc: 6, tc: 1, fa: 'krolik', ta: 'owca',     category: 'upgrade'   },
+  { fc: 2, tc: 1, fa: 'owca',   ta: 'swinia',   category: 'upgrade'   },
+  { fc: 3, tc: 1, fa: 'swinia', ta: 'krowa',    category: 'upgrade'   },
+  { fc: 2, tc: 1, fa: 'krowa',  ta: 'kon',      category: 'upgrade'   },
+
+  // Downgrades
+  { fc: 1, tc: 6, fa: 'owca',   ta: 'krolik',   category: 'downgrade' },
+  { fc: 1, tc: 2, fa: 'swinia', ta: 'owca',     category: 'downgrade' },
+  { fc: 1, tc: 3, fa: 'krowa',  ta: 'swinia',   category: 'downgrade' },
+  { fc: 1, tc: 2, fa: 'kon',    ta: 'krowa',    category: 'downgrade' },
+
+  // Dogs
+  { fc: 1, tc: 1, fa: 'owca',   ta: 'malyPies', category: 'dogs'      },
+  { fc: 1, tc: 1, fa: 'malyPies',ta: 'owca',    category: 'dogs'      },
+  { fc: 1, tc: 1, fa: 'krowa',  ta: 'duzyPies', category: 'dogs'      },
+  { fc: 1, tc: 1, fa: 'duzyPies',ta: 'krowa',   category: 'dogs'      },
 ];
 
-// =============================================
-//  STAN GRY
-// =============================================
+// =============================================================================
+//  PROCEDURAL AUDIO SYNTHESIZER (WEB AUDIO API)
+// =============================================================================
+
+class SoundFXEngine {
+  constructor() {
+    this.ctx = null;
+    this.muted = localStorage.getItem('farmer_sound_muted') === 'true';
+  }
+
+  init() {
+    if (!this.ctx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) this.ctx = new AudioCtx();
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+  }
+
+  toggleMute() {
+    this.muted = !this.muted;
+    localStorage.setItem('farmer_sound_muted', this.muted);
+    return this.muted;
+  }
+
+  playRoll() {
+    if (this.muted) return;
+    this.init();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    for (let i = 0; i < 5; i++) {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(140 + Math.random() * 80, now + i * 0.09);
+      gain.gain.setValueAtTime(0.12, now + i * 0.09);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.09 + 0.06);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now + i * 0.09);
+      osc.stop(now + i * 0.09 + 0.07);
+    }
+  }
+
+  playGain() {
+    if (this.muted) return;
+    this.init();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const freqs = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+    freqs.forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.07);
+      gain.gain.setValueAtTime(0.15, now + idx * 0.07);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.25);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now + idx * 0.07);
+      osc.stop(now + idx * 0.07 + 0.28);
+    });
+  }
+
+  playTrade() {
+    if (this.muted) return;
+    this.init();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const freqs = [987.77, 1318.51]; // B5, E6
+    freqs.forEach((f, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(f, now + idx * 0.08);
+      gain.gain.setValueAtTime(0.18, now + idx * 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.2);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now + idx * 0.08);
+      osc.stop(now + idx * 0.08 + 0.22);
+    });
+  }
+
+  playWolf() {
+    if (this.muted) return;
+    this.init();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(220, now);
+    osc.frequency.exponentialRampToValueAtTime(65, now + 0.6);
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.7);
+  }
+
+  playFox() {
+    if (this.muted) return;
+    this.init();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(400, now);
+    osc.frequency.linearRampToValueAtTime(700, now + 0.15);
+    osc.frequency.linearRampToValueAtTime(300, now + 0.35);
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.42);
+  }
+
+  playVictory() {
+    if (this.muted) return;
+    this.init();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const chords = [
+      { f: [523.25, 659.25, 783.99], t: 0 },
+      { f: [587.33, 698.46, 880.00], t: 0.2 },
+      { f: [659.25, 783.99, 987.77], t: 0.4 },
+      { f: [783.99, 987.77, 1318.51, 1567.98], t: 0.65 },
+    ];
+    chords.forEach(c => {
+      c.f.forEach(freq => {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + c.t);
+        gain.gain.setValueAtTime(0.12, now + c.t);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + c.t + 0.7);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now + c.t);
+        osc.stop(now + c.t + 0.75);
+      });
+    });
+  }
+
+  playClick() {
+    if (this.muted) return;
+    this.init();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, now);
+    gain.gain.setValueAtTime(0.06, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.05);
+  }
+}
+
+const SoundFX = new SoundFXEngine();
+
+// =============================================================================
+//  GAME STATE
+// =============================================================================
 
 function makeFarm(isHerd = false) {
   const f = {};
@@ -48,31 +222,37 @@ function makeFarm(isHerd = false) {
 }
 
 let state = {
-  mode: '2p',       // '2p' lub 'ai'
-  names: ['Gracz 1', 'Gracz 2'],
+  mode: '2p',            // '2p' | 'ai'
+  names: ['Player 1', 'Player 2'],
   herd: null,
   farms: [null, null],
-  currentPlayer: 0, // 0 lub 1
+  currentPlayer: 0,      // 0 | 1
+  phase: 'BEFORE_ROLL',  // 'BEFORE_ROLL' | 'AFTER_ROLL'
+  activeTradeFilter: 'all',
   gameOver: false,
   rolling: false,
 };
 
-// =============================================
-//  EKRAN STARTOWY
-// =============================================
-
 let selectedMode = '2p';
+
+// =============================================================================
+//  START SCREEN & INITIALIZATION
+// =============================================================================
 
 function selectMode(mode) {
   selectedMode = mode;
+  SoundFX.playClick();
   document.getElementById('mode2p').classList.toggle('selected', mode === '2p');
   document.getElementById('modeAI').classList.toggle('selected', mode === 'ai');
-  document.getElementById('player2NameWrap').style.display = mode === 'ai' ? 'none' : 'block';
+  document.getElementById('player2NameWrap').style.display = mode === 'ai' ? 'none' : 'flex';
 }
 
 function startGame() {
-  const name1 = document.getElementById('player1Name').value.trim() || 'Gracz 1';
-  const name2 = selectedMode === 'ai' ? '🤖 Komputer' : (document.getElementById('player2Name').value.trim() || 'Gracz 2');
+  SoundFX.init();
+  SoundFX.playClick();
+
+  const name1 = document.getElementById('player1Name').value.trim() || 'Player 1';
+  const name2 = selectedMode === 'ai' ? '🤖 Computer (AI)' : (document.getElementById('player2Name').value.trim() || 'Player 2');
 
   state = {
     mode: selectedMode,
@@ -80,6 +260,8 @@ function startGame() {
     herd: makeFarm(true),
     farms: [makeFarm(), makeFarm()],
     currentPlayer: 0,
+    phase: 'BEFORE_ROLL',
+    activeTradeFilter: 'all',
     gameOver: false,
     rolling: false,
   };
@@ -88,106 +270,195 @@ function startGame() {
   const gs = document.getElementById('gameScreen');
   gs.style.display = 'flex';
 
-  // Ustaw imiona
   document.getElementById('p1Label').textContent = name1;
   document.getElementById('p2Label').textContent = name2;
-  document.getElementById('p1TypeBadge').textContent = 'Człowiek';
-  document.getElementById('p2TypeBadge').textContent = selectedMode === 'ai' ? 'Komputer (AI)' : 'Człowiek';
+  document.getElementById('p1TypeBadge').textContent = 'Farmer';
+  document.getElementById('p2TypeBadge').textContent = selectedMode === 'ai' ? 'AI Bot' : 'Farmer';
+  document.getElementById('p2Avatar').textContent = selectedMode === 'ai' ? '🤖' : '🧑‍🌾';
 
   setupExchangeUI();
   renderAll();
-  log(`🌾 Gra rozpoczęta! Tura: ${name1}`, 'info');
+  log(`🌾 Game started! Good luck to ${name1} and ${name2}!`, 'info');
 }
 
-// =============================================
-//  RENDEROWANIE
-// =============================================
+function toggleSound() {
+  const isMuted = SoundFX.toggleMute();
+  const icon = document.getElementById('soundIcon');
+  if (icon) icon.textContent = isMuted ? '🔇' : '🔊';
+  if (!isMuted) SoundFX.playClick();
+}
+
+// =============================================================================
+//  RENDERING UI
+// =============================================================================
 
 function renderAll() {
   renderHerd();
   renderFarm(0);
   renderFarm(1);
   updateTurnUI();
+  updateExchangeUI();
 }
 
 function renderHerd() {
   const el = document.getElementById('herdDisplay');
   el.innerHTML = '';
   for (const k in ANIMALS) {
+    const a = ANIMALS[k];
+    const isEmpty = state.herd[k] === 0;
     el.innerHTML += `
-      <div class="animal-slot">
-        <span class="animal-emoji">${ANIMALS[k].emoji}</span>
+      <div class="animal-slot ${isEmpty ? 'empty' : ''}" id="slot-herd-${k}" title="Bank Herd: ${a.name}">
+        <span class="animal-emoji">${a.emoji}</span>
         <div class="animal-count" id="herd-${k}">${state.herd[k]}</div>
-        <div class="animal-name">${ANIMALS[k].name}</div>
+        <div class="animal-name">${a.name}</div>
       </div>`;
   }
 }
 
 function renderFarm(playerIdx) {
-  const id = `p${playerIdx + 1}-farm`;
-  const el = document.getElementById(id);
+  const pNum = playerIdx + 1;
+  const el = document.getElementById(`p${pNum}-farm`);
   el.innerHTML = '';
   for (const k in ANIMALS) {
+    const a = ANIMALS[k];
+    const count = state.farms[playerIdx][k];
+    const isEmpty = count === 0;
     el.innerHTML += `
-      <div class="animal-slot">
-        <span class="animal-emoji">${ANIMALS[k].emoji}</span>
-        <div class="animal-count" id="p${playerIdx+1}-${k}">${state.farms[playerIdx][k]}</div>
-        <div class="animal-name">${ANIMALS[k].name}</div>
+      <div class="animal-slot ${isEmpty ? 'empty' : ''}" id="slot-p${pNum}-${k}" title="${a.name} on farm">
+        <span class="animal-emoji">${a.emoji}</span>
+        <div class="animal-count" id="p${pNum}-${k}">${count}</div>
+        <div class="animal-name">${a.name}</div>
       </div>`;
   }
-  updateProgress(playerIdx);
+  updatePlayerBadges(playerIdx);
 }
 
 function updateCounts() {
   for (const k in ANIMALS) {
     const hEl = document.getElementById(`herd-${k}`);
+    const hSlot = document.getElementById(`slot-herd-${k}`);
     if (hEl) hEl.textContent = state.herd[k];
+    if (hSlot) hSlot.classList.toggle('empty', state.herd[k] === 0);
+
     for (let i = 0; i < 2; i++) {
-      const fEl = document.getElementById(`p${i+1}-${k}`);
-      if (fEl) fEl.textContent = state.farms[i][k];
+      const pNum = i + 1;
+      const count = state.farms[i][k];
+      const fEl = document.getElementById(`p${pNum}-${k}`);
+      const fSlot = document.getElementById(`slot-p${pNum}-${k}`);
+      if (fEl) fEl.textContent = count;
+      if (fSlot) fSlot.classList.toggle('empty', count === 0);
     }
   }
-  updateProgress(0);
-  updateProgress(1);
+  updatePlayerBadges(0);
+  updatePlayerBadges(1);
+  updateExchangeUI();
 }
 
-function updateProgress(playerIdx) {
+function updatePlayerBadges(playerIdx) {
+  const pNum = playerIdx + 1;
   const farm = state.farms[playerIdx];
-  const count = WIN_ANIMALS.filter(a => farm[a] > 0).length;
-  const pct = (count / WIN_ANIMALS.length) * 100;
-  const bar   = document.getElementById(`p${playerIdx+1}-progress`);
-  const label = document.getElementById(`p${playerIdx+1}-progress-label`);
-  if (bar)   bar.style.width = pct + '%';
-  if (label) label.textContent = `${count}/5`;
+
+  // Victory Badges (5 Target Species)
+  let winCount = 0;
+  WIN_ANIMALS.forEach(animalKey => {
+    const slot = document.getElementById(`p${pNum}-vic-${animalKey}`);
+    const hasAnimal = farm[animalKey] > 0;
+    if (slot) {
+      slot.classList.toggle('collected', hasAnimal);
+      const statusSpan = slot.querySelector('.vic-status');
+      if (statusSpan) statusSpan.textContent = hasAnimal ? '✅' : '❌';
+    }
+    if (hasAnimal) winCount++;
+  });
+
+  const progressLabel = document.getElementById(`p${pNum}-progress-label`);
+  if (progressLabel) progressLabel.textContent = `${winCount} / 5`;
+  const progressBar = document.getElementById(`p${pNum}-progress`);
+  if (progressBar) progressBar.style.width = `${(winCount / 5) * 100}%`;
+
+  // Dog Defense Shields
+  const foxBadge = document.getElementById(`p${pNum}-def-fox`);
+  const foxState = document.getElementById(`p${pNum}-def-fox-state`);
+  const hasFoxDef = farm.malyPies > 0;
+  if (foxBadge) foxBadge.classList.toggle('active-def', hasFoxDef);
+  if (foxState) foxState.textContent = hasFoxDef ? `Active (${farm.malyPies}🐕) 🛡️` : 'No Dog ⚠️';
+
+  const wolfBadge = document.getElementById(`p${pNum}-def-wolf`);
+  const wolfState = document.getElementById(`p${pNum}-def-wolf-state`);
+  const hasWolfDef = farm.duzyPies > 0;
+  if (wolfBadge) wolfBadge.classList.toggle('active-def', hasWolfDef);
+  if (wolfState) wolfState.textContent = hasWolfDef ? `Active (${farm.duzyPies}🐩) 🛡️` : 'No Dog ⚠️';
 }
 
 function updateTurnUI() {
-  const name = state.names[state.currentPlayer];
-  document.getElementById('turnBadge').textContent = `Tura: ${name}`;
+  const p = state.currentPlayer;
+  const name = state.names[p];
+  const isAI = state.mode === 'ai' && p === 1;
 
-  document.getElementById('p1Card').classList.toggle('active', state.currentPlayer === 0);
-  document.getElementById('p2Card').classList.toggle('active', state.currentPlayer === 1);
+  document.getElementById('turnBadgeText').textContent = `Turn: ${name}`;
+  document.getElementById('p1Card').classList.toggle('active', p === 0);
+  document.getElementById('p2Card').classList.toggle('active', p === 1);
 
-  // Wyłącz przycisk jeśli AI gra
-  const isAITurn = state.mode === 'ai' && state.currentPlayer === 1;
-  document.getElementById('throwBtn').disabled = isAITurn;
+  const phaseTag = document.getElementById('dicePhaseTag');
+  const phaseIndicator = document.getElementById('turnPhaseIndicator');
+  const throwBtn = document.getElementById('throwBtn');
+  const endTurnBtn = document.getElementById('endTurnBtn');
+
+  if (state.phase === 'BEFORE_ROLL') {
+    if (phaseTag) phaseTag.textContent = 'PHASE 1: ROLL OR TRADE';
+    if (phaseIndicator) phaseIndicator.textContent = 'Step 1: Execute trades on the market or roll the dice';
+    if (throwBtn) throwBtn.disabled = isAI || state.rolling;
+    if (endTurnBtn) endTurnBtn.disabled = true;
+  } else {
+    if (phaseTag) phaseTag.textContent = 'PHASE 2: SUMMARY & TRADE';
+    if (phaseIndicator) phaseIndicator.textContent = 'Step 2: Check your newborn animals, trade, and end turn';
+    if (throwBtn) throwBtn.disabled = true;
+    if (endTurnBtn) endTurnBtn.disabled = isAI || state.rolling;
+  }
 }
 
-// =============================================
-//  LOGOWANIE
-// =============================================
+// =============================================================================
+//  ANIMATED FLOATING LABELS (FLOATING DELTA)
+// =============================================================================
+
+function showFloatingDelta(elementId, text, isPositive = true) {
+  const target = document.getElementById(elementId);
+  if (!target) return;
+  const rect = target.getBoundingClientRect();
+  const container = document.getElementById('floatingDeltaContainer');
+  if (!container) return;
+
+  const delta = document.createElement('div');
+  delta.className = `floating-delta ${isPositive ? 'plus' : 'minus'}`;
+  delta.textContent = text;
+  delta.style.left = `${rect.left + rect.width / 2}px`;
+  delta.style.top = `${rect.top + rect.height / 3}px`;
+  container.appendChild(delta);
+
+  setTimeout(() => delta.remove(), 1200);
+}
+
+// =============================================================================
+//  GAME EVENT LOGGING
+// =============================================================================
 
 function log(msg, type = '') {
   const box = document.getElementById('logContent');
+  if (!box) return;
   const div = document.createElement('div');
   div.className = `log-entry ${type}`;
   div.innerHTML = msg;
   box.prepend(div);
 }
 
-// =============================================
-//  KOSTKI
-// =============================================
+function clearLogs() {
+  const box = document.getElementById('logContent');
+  if (box) box.innerHTML = '';
+}
+
+// =============================================================================
+//  TURN LOGIC & DICE ROLLING
+// =============================================================================
 
 function rollDie(cube) {
   return cube[Math.floor(Math.random() * cube.length)];
@@ -199,26 +470,25 @@ function getAnimalEmoji(result) {
   return ANIMALS[result].emoji;
 }
 
-// =============================================
-//  LOGIKA TURY
-// =============================================
-
 function handleThrow() {
-  if (state.gameOver || state.rolling) return;
-  executeTurn(state.currentPlayer);
+  if (state.gameOver || state.rolling || state.phase !== 'BEFORE_ROLL') return;
+  executeThrow(state.currentPlayer);
 }
 
-function executeTurn(playerIdx) {
+function executeThrow(playerIdx) {
   state.rolling = true;
-  document.getElementById('throwBtn').disabled = true;
+  SoundFX.playRoll();
+  updateTurnUI();
 
-  // Animacja kostek
   const die1El = document.getElementById('die1');
   const die2El = document.getElementById('die2');
   die1El.classList.add('rolling');
   die2El.classList.add('rolling');
-  die1El.textContent = '🎲';
-  die2El.textContent = '🎲';
+  die1El.querySelector('.die-face').textContent = '🎲';
+  die2El.querySelector('.die-face').textContent = '🎲';
+
+  const calcBox = document.getElementById('calcBreakdown');
+  if (calcBox) calcBox.style.display = 'none';
 
   setTimeout(() => {
     const r1 = rollDie(CUBE1);
@@ -226,225 +496,404 @@ function executeTurn(playerIdx) {
 
     die1El.classList.remove('rolling');
     die2El.classList.remove('rolling');
-    die1El.textContent = getAnimalEmoji(r1);
-    die2El.textContent = getAnimalEmoji(r2);
+    die1El.querySelector('.die-face').textContent = getAnimalEmoji(r1);
+    die2El.querySelector('.die-face').textContent = getAnimalEmoji(r2);
 
     const name = state.names[playerIdx];
     document.getElementById('diceResult').textContent =
-      `${name} wyrzucił: ${getAnimalEmoji(r1)} i ${getAnimalEmoji(r2)}`;
+      `${name} rolled: ${getAnimalEmoji(r1)} and ${getAnimalEmoji(r2)}`;
 
     processRoll(playerIdx, r1, r2);
     updateCounts();
 
-    if (!state.gameOver) {
-      if (state.mode === 'ai') aiExchange(1); // AI wymiana po rzucie
-      if (!checkWin(playerIdx)) {
-        endTurn();
-        // Jeśli kolejny gracz to AI, odpal jego turę po chwili
-        if (state.mode === 'ai' && state.currentPlayer === 1 && !state.gameOver) {
-          setTimeout(() => aiTurn(), 1200);
-        }
-      }
-    }
-
     state.rolling = false;
+    state.phase = 'AFTER_ROLL';
+    updateTurnUI();
+
     if (!state.gameOver) {
-      const isAITurn = state.mode === 'ai' && state.currentPlayer === 1;
-      document.getElementById('throwBtn').disabled = isAITurn;
+      checkWin(playerIdx);
     }
-  }, 550);
+  }, 580);
 }
 
 function processRoll(playerIdx, r1, r2) {
   const farm = state.farms[playerIdx];
   const name = state.names[playerIdx];
+  const pNum = playerIdx + 1;
+  const calcBox = document.getElementById('calcBreakdown');
+  const calcText = document.getElementById('calcBreakdownText');
 
-  // Wilk na kostce 1 ma priorytet
-  if (r1 === 'wilk') {
-    handleWolf(playerIdx, name);
-    // Jeśli na drugiej kostce coś innego niż lis — normalny wynik, ale wilk anuluje
+  const isWolf = (r1 === 'wilk');
+  const isFox = (r2 === 'lis');
+
+  // Predator encounters
+  if (isWolf || isFox) {
+    if (isWolf) handleWolf(playerIdx, name);
+    if (isFox) handleFox(playerIdx, name);
     return;
   }
 
-  // Lis na kostce 2 ma priorytet
-  if (r2 === 'lis') {
-    handleFox(playerIdx, name);
-    return;
-  }
+  // Normal roll — breeding calculation
+  const rolledCounts = {};
+  [r1, r2].forEach(r => rolledCounts[r] = (rolledCounts[r] || 0) + 1);
 
-  // Normalny rzut — licz zwierzęta
-  const rolled = {};
-  [r1, r2].forEach(r => rolled[r] = (rolled[r] || 0) + 1);
+  let gainedList = [];
+  let explanations = [];
 
-  let gained = [];
-  for (const animal in rolled) {
-    const inFarm = farm[animal];
-    const total = inFarm + rolled[animal];
-    const newCount = Math.floor(total / 2);
-    const toAdd = Math.max(0, newCount - inFarm);
+  for (const animal in rolledCounts) {
+    const farmCount = farm[animal] || 0;
+    const diceCount = rolledCounts[animal];
+    const sum = farmCount + diceCount;
+    // For every full pair (sum ÷ 2), the player gets 1 new offspring from bank
+    const toAdd = Math.floor(sum / 2);
+
     if (toAdd > 0) {
-      const actual = Math.min(toAdd, state.herd[animal]);
-      if (actual > 0) {
-        farm[animal] += actual;
-        state.herd[animal] -= actual;
-        gained.push(`+${actual}${ANIMALS[animal].emoji}`);
+      const inStock = state.herd[animal];
+      const actualAdd = Math.min(toAdd, inStock);
+
+      if (actualAdd > 0) {
+        farm[animal] += actualAdd;
+        state.herd[animal] -= actualAdd;
+        gainedList.push(`+${actualAdd} ${ANIMALS[animal].emoji} (${ANIMALS[animal].name})`);
+        showFloatingDelta(`slot-p${pNum}-${animal}`, `+${actualAdd} ${ANIMALS[animal].emoji}`, true);
+        explanations.push(`• <strong>${ANIMALS[animal].name}</strong>: Farm has (${farmCount}) + Rolled on dice (${diceCount}) = Total <strong>${sum} pcs</strong> (i.e. <strong>${toAdd} ${toAdd === 1 ? 'pair' : 'pairs'}</strong>) ➔ Received <strong>+${actualAdd} ${ANIMALS[animal].emoji}</strong> from Bank.`);
+      } else {
+        explanations.push(`• <strong>${ANIMALS[animal].name}</strong>: Eligible for +${toAdd}, but Bank is completely out of stock!`);
       }
+    } else {
+      explanations.push(`• <strong>${ANIMALS[animal].name}</strong>: Farm has (${farmCount}) + Rolled (${diceCount}) = <strong>${sum} pcs</strong> (Need at least 2 to form a breeding pair).`);
     }
   }
 
-  if (gained.length > 0) {
-    log(`🎲 ${name}: ${gained.join(', ')}`, 'good');
+  if (gainedList.length > 0) {
+    SoundFX.playGain();
+    log(`🎲 <strong>${name}</strong> expanded herd: ${gainedList.join(', ')}`, 'good');
   } else {
-    log(`🎲 ${name}: Brak nowych zwierząt`, '');
+    log(`🎲 <strong>${name}</strong>: No new animal pairs from this roll.`, '');
+  }
+
+  if (calcBox && calcText) {
+    calcBox.style.display = 'block';
+    calcText.innerHTML = explanations.join('<br/>');
   }
 }
 
 function handleWolf(playerIdx, name) {
   const farm = state.farms[playerIdx];
+  const pNum = playerIdx + 1;
+  const calcBox = document.getElementById('calcBreakdown');
+  const calcText = document.getElementById('calcBreakdownText');
+
+  SoundFX.playWolf();
+
   if (farm.duzyPies > 0) {
     state.herd.duzyPies++;
     farm.duzyPies--;
-    log(`🐺 Wilk zaatakował! Duży pies obronił farmę ${name}.`, 'good');
+    showFloatingDelta(`slot-p${pNum}-duzyPies`, '-1 🐩', false);
+    log(`🐺 <strong>Wolf attacked!</strong> Big Dog 🐩 successfully defended ${name}'s farm and repelled the predator!`, 'good');
+    if (calcBox && calcText) {
+      calcBox.style.display = 'block';
+      calcText.innerHTML = '🛡️ <strong>Defense Successful!</strong> Big Dog 🐩 repelled the Wolf and returned to the bank. Your herd is safe.';
+    }
   } else {
     let lost = [];
     for (const k in farm) {
       if (k !== 'kon' && k !== 'duzyPies' && farm[k] > 0) {
         state.herd[k] += farm[k];
-        lost.push(`${farm[k]}${ANIMALS[k].emoji}`);
+        lost.push(`${farm[k]} ${ANIMALS[k].emoji}`);
+        showFloatingDelta(`slot-p${pNum}-${k}`, `-${farm[k]} ${ANIMALS[k].emoji}`, false);
         farm[k] = 0;
       }
     }
-    if (lost.length) log(`🐺 Wilk spustoszył farmę ${name}! Stracono: ${lost.join(', ')}`, 'bad');
-    else log(`🐺 Wilk zaatakował ${name}, ale farma i tak była pusta!`, 'bad');
+    if (lost.length > 0) {
+      log(`🐺 <strong>Wolf raided ${name}'s farm!</strong> Lost: ${lost.join(', ')} (Horses and Big Dogs survived).`, 'bad');
+    } else {
+      log(`🐺 Wolf visited ${name}'s farm, but the farm was empty!`, 'bad');
+    }
+    if (calcBox && calcText) {
+      calcBox.style.display = 'block';
+      calcText.innerHTML = '⚠️ <strong>Wolf Attack!</strong> No Big Dog available. All animals (except Horses) were devoured and returned to the bank.';
+    }
   }
 }
 
 function handleFox(playerIdx, name) {
   const farm = state.farms[playerIdx];
+  const pNum = playerIdx + 1;
+  const calcBox = document.getElementById('calcBreakdown');
+  const calcText = document.getElementById('calcBreakdownText');
+
+  SoundFX.playFox();
+
   if (farm.malyPies > 0) {
     state.herd.malyPies++;
     farm.malyPies--;
-    log(`🦊 Lis zaatakował! Mały pies obronił króliki ${name}.`, 'good');
+    showFloatingDelta(`slot-p${pNum}-malyPies`, '-1 🐕', false);
+    log(`🦊 <strong>Fox attacked!</strong> Small Dog 🐕 protected ${name}'s rabbits!`, 'good');
+    if (calcBox && calcText) {
+      calcBox.style.display = 'block';
+      calcText.innerHTML = '🛡️ <strong>Defense Successful!</strong> Small Dog 🐕 repelled the Fox and returned to the bank. Rabbits are safe.';
+    }
   } else {
     const lost = farm.krolik;
     state.herd.krolik += lost;
     farm.krolik = 0;
-    if (lost > 0) log(`🦊 Lis zjadł ${lost}🐰 z farmy ${name}!`, 'bad');
-    else log(`🦊 Lis odwiedził ${name}, ale nie było królików do zjedzenia.`, 'bad');
+    if (lost > 0) {
+      showFloatingDelta(`slot-p${pNum}-krolik`, `-${lost} 🐰`, false);
+      log(`🦊 <strong>Fox devoured all rabbits (${lost} 🐰)</strong> from ${name}'s farm!`, 'bad');
+    } else {
+      log(`🦊 Fox visited ${name}'s farm, but there were no rabbits to eat.`, 'bad');
+    }
+    if (calcBox && calcText) {
+      calcBox.style.display = 'block';
+      calcText.innerHTML = '⚠️ <strong>Fox Attack!</strong> No Small Dog available. All rabbits 🐰 were devoured and returned to the bank.';
+    }
   }
 }
 
-function endTurn() {
+function handleEndTurn() {
+  if (state.gameOver || state.rolling || state.phase !== 'AFTER_ROLL') return;
+  SoundFX.playClick();
+  advanceTurn();
+}
+
+function advanceTurn() {
   state.currentPlayer = state.currentPlayer === 0 ? 1 : 0;
+  state.phase = 'BEFORE_ROLL';
+  updateCounts();
   updateTurnUI();
-  const name = state.names[state.currentPlayer];
-  log(`— Tura: ${name} —`, 'info');
+
+  const nextName = state.names[state.currentPlayer];
+  log(`➡️ <strong>Turn finished.</strong> Next up: ${nextName}`, 'info');
+
+  // Trigger AI turn if applicable
+  if (state.mode === 'ai' && state.currentPlayer === 1 && !state.gameOver) {
+    setTimeout(() => runAITurn(), 900);
+  }
 }
 
-// =============================================
-//  WYMIANA
-// =============================================
+// =============================================================================
+//  ANIMAL EXCHANGE MARKET
+// =============================================================================
 
-function exchange(fromCount, toCount, fromAnimal, toAnimal) {
-  if (state.gameOver) return;
-  const farm = state.farms[state.currentPlayer];
-  const name = state.names[state.currentPlayer];
-
-  if (farm[fromAnimal] < fromCount) {
-    log(`❌ Za mało ${ANIMALS[fromAnimal].emoji} do wymiany!`, '');
-    return;
-  }
-  if (state.herd[toAnimal] < toCount) {
-    log(`❌ Stado nie ma tyle ${ANIMALS[toAnimal].emoji}!`, '');
-    return;
-  }
-
-  farm[fromAnimal]       -= fromCount;
-  state.herd[fromAnimal] += fromCount;
-  farm[toAnimal]         += toCount;
-  state.herd[toAnimal]   -= toCount;
-
-  log(`🔄 ${name}: ${fromCount}${ANIMALS[fromAnimal].emoji} → ${toCount}${ANIMALS[toAnimal].emoji}`, 'trade');
-  updateCounts();
-  checkWin(state.currentPlayer);
+function filterTrades(category) {
+  state.activeTradeFilter = category;
+  SoundFX.playClick();
+  document.querySelectorAll('.filter-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.getAttribute('data-category') === category);
+  });
+  setupExchangeUI();
 }
 
 function setupExchangeUI() {
   const grid = document.getElementById('exchangeTools');
+  if (!grid) return;
   grid.innerHTML = '';
-  TRADES.forEach(([fc, tc, fa, ta]) => {
-    const btn = document.createElement('button');
-    btn.className = 'ex-btn';
-    btn.title = `Wymień ${fc} ${ANIMALS[fa].name} za ${tc} ${ANIMALS[ta].name}`;
-    btn.innerHTML = `${fc}${ANIMALS[fa].emoji} ➔ ${tc}${ANIMALS[ta].emoji}`;
-    btn.onclick = () => exchange(fc, tc, fa, ta);
-    grid.appendChild(btn);
+
+  const playerFarm = state.farms[state.currentPlayer];
+  const pNum = state.currentPlayer + 1;
+
+  // Compute category counts
+  const catCounts = { all: TRADES.length, upgrade: 0, downgrade: 0, dogs: 0 };
+  TRADES.forEach(t => catCounts[t.category]++);
+  for (const c in catCounts) {
+    const el = document.getElementById(`count-${c}`);
+    if (el) el.textContent = catCounts[c];
+  }
+
+  const filtered = state.activeTradeFilter === 'all'
+    ? TRADES
+    : TRADES.filter(t => t.category === state.activeTradeFilter);
+
+  filtered.forEach(trade => {
+    const { fc, tc, fa, ta } = trade;
+    const playerHas = playerFarm ? playerFarm[fa] : 0;
+    const bankHas = state.herd ? state.herd[ta] : 0;
+
+    const maxByPlayer = Math.floor(playerHas / fc);
+    const maxByBank = Math.floor(bankHas / tc);
+    const maxTrades = Math.min(maxByPlayer, maxByBank);
+    const isAffordable = maxTrades >= 1;
+    const isOutOfStock = bankHas < tc;
+
+    let cardClass = 'ex-card';
+    if (isAffordable) cardClass += ' affordable';
+    else if (isOutOfStock) cardClass += ' out-of-stock';
+    else cardClass += ' unaffordable';
+
+    const card = document.createElement('div');
+    card.className = cardClass;
+    card.innerHTML = `
+      <div class="ex-card-flow">
+        <div class="ex-side">
+          <span class="ex-side-emoji">${ANIMALS[fa].emoji}</span>
+          <div class="ex-side-info">
+            <span class="ex-side-count">${fc}x</span>
+            <span class="ex-side-name">${ANIMALS[fa].name}</span>
+          </div>
+        </div>
+        <div class="ex-arrow-badge">➔</div>
+        <div class="ex-side">
+          <span class="ex-side-emoji">${ANIMALS[ta].emoji}</span>
+          <div class="ex-side-info">
+            <span class="ex-side-count">+${tc}x</span>
+            <span class="ex-side-name">${ANIMALS[ta].name}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ex-card-status">
+        <span class="ex-status-you">You have: <strong>${playerHas}</strong> / ${fc}</span>
+        <span class="ex-status-bank">In bank: <strong>${bankHas}</strong></span>
+      </div>
+
+      <div class="ex-card-actions">
+        <button class="btn-trade-action" ${!isAffordable ? 'disabled' : ''} onclick="executeExchange(${fc}, ${tc}, '${fa}', '${ta}', 1)">
+          ${isAffordable ? 'Trade 1x' : (isOutOfStock ? 'Out of Stock' : 'Need more animals')}
+        </button>
+        ${maxTrades >= 2 ? `<button class="btn-trade-max" title="Trade maximum affordable quantity (${maxTrades}x)" onclick="executeExchange(${fc}, ${tc}, '${fa}', '${ta}', ${maxTrades})">MAX (${maxTrades}x)</button>` : ''}
+      </div>
+    `;
+
+    grid.appendChild(card);
   });
 }
 
-// =============================================
-//  AI — PROSTA STRATEGIA OPTYMALNA
-// =============================================
+function updateExchangeUI() {
+  setupExchangeUI();
+}
 
-function aiTurn() {
+function executeExchange(fc, tc, fa, ta, times = 1) {
+  if (state.gameOver) return;
+  const p = state.currentPlayer;
+  const farm = state.farms[p];
+  const name = state.names[p];
+  const pNum = p + 1;
+
+  const totalFrom = fc * times;
+  const totalTo = tc * times;
+
+  if (farm[fa] < totalFrom) {
+    log(`❌ Not enough ${ANIMALS[fa].emoji} on ${name}'s farm!`, 'bad');
+    return;
+  }
+  if (state.herd[ta] < totalTo) {
+    log(`❌ Main Herd does not have ${totalTo}x ${ANIMALS[ta].emoji}!`, 'bad');
+    return;
+  }
+
+  farm[fa] -= totalFrom;
+  state.herd[fa] += totalFrom;
+  farm[ta] += totalTo;
+  state.herd[ta] -= totalTo;
+
+  SoundFX.playTrade();
+  showFloatingDelta(`slot-p${pNum}-${fa}`, `-${totalFrom} ${ANIMALS[fa].emoji}`, false);
+  showFloatingDelta(`slot-p${pNum}-${ta}`, `+${totalTo} ${ANIMALS[ta].emoji}`, true);
+
+  log(`🔄 <strong>${name}</strong> traded: ${totalFrom}${ANIMALS[fa].emoji} ➔ ${totalTo}${ANIMALS[ta].emoji}`, 'trade');
+
+  updateCounts();
+  checkWin(p);
+}
+
+// =============================================================================
+//  ARTIFICIAL INTELLIGENCE (AI)
+// =============================================================================
+
+function runAITurn() {
   if (state.gameOver || state.currentPlayer !== 1) return;
 
-  // AI najpierw robi wymianę, potem rzut
-  aiExchange(1);
+  log(`🤖 <em>${state.names[1]} is analyzing the farm and calculating optimal trades...</em>`, '');
 
-  const aiName = state.names[1];
-  log(`🤖 ${aiName} <span class="ai-thinking">myśli</span>`, '');
-
+  // 1. Pre-roll trading
   setTimeout(() => {
-    executeTurn(1);
-  }, 800);
+    if (state.gameOver) return;
+    smartAIExchange(1);
+
+    // 2. Roll dice
+    setTimeout(() => {
+      if (state.gameOver) return;
+      executeThrow(1);
+
+      // 3. Post-roll trading & finish turn
+      setTimeout(() => {
+        if (state.gameOver) return;
+        smartAIExchange(1);
+        setTimeout(() => {
+          if (!state.gameOver) {
+            advanceTurn();
+          }
+        }, 800);
+      }, 1000);
+
+    }, 800);
+  }, 700);
 }
 
-function aiExchange(playerIdx) {
-  // Greedy: zawsze próbuj awansować do wyższych zwierząt
+function smartAIExchange(playerIdx) {
   const farm = state.farms[playerIdx];
-  const order = ['krolik','owca','swinia','krowa','kon'];
-  const rates  = [6, 2, 3, 2]; // ile niższych = 1 wyższy
+  const order = ['krolik', 'owca', 'swinia', 'krowa', 'kon'];
+  const rates = [6, 2, 3, 2];
 
-  let changed = true;
-  while (changed) {
-    changed = false;
+  let didTrade = false;
+  let loops = 0;
+
+  while (loops < 10) {
+    loops++;
+    let changed = false;
+
+    // Guard dog defense if surplus animals available
+    if (farm.owca >= 2 && farm.malyPies === 0 && state.herd.malyPies > 0) {
+      farm.owca -= 1;
+      state.herd.owca += 1;
+      farm.malyPies += 1;
+      state.herd.malyPies -= 1;
+      log(`🤖 <strong>AI</strong> bought a Small Dog 🐕 for Fox defense.`, 'trade');
+      changed = true;
+      didTrade = true;
+    }
+
+    if (farm.krowa >= 2 && farm.duzyPies === 0 && state.herd.duzyPies > 0) {
+      farm.krowa -= 1;
+      state.herd.krowa += 1;
+      farm.duzyPies += 1;
+      state.herd.duzyPies -= 1;
+      log(`🤖 <strong>AI</strong> bought a Big Dog 🐩 for Wolf defense.`, 'trade');
+      changed = true;
+      didTrade = true;
+    }
+
+    // Upgrades to higher tiers
     for (let i = 0; i < order.length - 1; i++) {
       const from = order[i];
-      const to   = order[i + 1];
+      const to = order[i + 1];
       const rate = rates[i];
-      // Wymień jeśli mamy dużo niższych i stado ma wyższe
+
       while (farm[from] >= rate && state.herd[to] >= 1) {
-        farm[from]       -= rate;
+        farm[from] -= rate;
         state.herd[from] += rate;
-        farm[to]         += 1;
-        state.herd[to]   -= 1;
+        farm[to] += 1;
+        state.herd[to] -= 1;
+        log(`🤖 <strong>AI</strong> traded ${rate}${ANIMALS[from].emoji} ➔ 1${ANIMALS[to].emoji}`, 'trade');
         changed = true;
+        didTrade = true;
       }
     }
-    // Jeśli brak małego psa i mamy owcę zapasową — kup
-    if (farm.owca >= 2 && farm.malyPies === 0 && state.herd.malyPies > 0) {
-      farm.owca         -= 1;
-      state.herd.owca   += 1;
-      farm.malyPies     += 1;
-      state.herd.malyPies -= 1;
-      changed = true;
-    }
-    // Jeśli brak dużego psa i mamy krowę zapasową — kup
-    if (farm.krowa >= 2 && farm.duzyPies === 0 && state.herd.duzyPies > 0) {
-      farm.krowa        -= 1;
-      state.herd.krowa  += 1;
-      farm.duzyPies     += 1;
-      state.herd.duzyPies -= 1;
-      changed = true;
-    }
+
+    if (!changed) break;
   }
-  updateCounts();
+
+  if (didTrade) {
+    SoundFX.playTrade();
+    updateCounts();
+    checkWin(playerIdx);
+  }
 }
 
-// =============================================
-//  WARUNEK WYGRANEJ
-// =============================================
+// =============================================================================
+//  WIN CONDITION & CELEBRATION
+// =============================================================================
 
 function checkWin(playerIdx) {
   const farm = state.farms[playerIdx];
@@ -459,34 +908,39 @@ function checkWin(playerIdx) {
 }
 
 function showWinner(name) {
-  document.getElementById('winnerName').textContent = `${name} wygrywa!`;
+  SoundFX.playVictory();
+  document.getElementById('winnerName').textContent = `${name} is the Super Farmer!`;
   document.getElementById('winnerScreen').style.display = 'flex';
   document.getElementById('throwBtn').disabled = true;
+  document.getElementById('endTurnBtn').disabled = true;
   launchConfetti();
-  log(`🏆 ${name} zebrał wszystkie zwierzęta i wygrał!`, 'info');
+  log(`🏆 <strong>${name}</strong> collected all 5 species and won the match!`, 'good');
 }
 
-// =============================================
-//  KONFETTI
-// =============================================
+function restartToStartScreen() {
+  document.getElementById('winnerScreen').style.display = 'none';
+  document.getElementById('gameScreen').style.display = 'none';
+  document.getElementById('startScreen').style.display = 'flex';
+}
 
 function launchConfetti() {
   const canvas = document.getElementById('confettiCanvas');
+  if (!canvas) return;
   const ctx = canvas.getContext('2d');
-  canvas.width  = window.innerWidth;
+  canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 
-  const colors = ['#f5c518','#e8a12a','#27ae60','#3498db','#e74c3c','#9b59b6','#1abc9c'];
-  const pieces = Array.from({ length: 120 }, () => ({
+  const colors = ['#f5c518', '#10e88a', '#38b6ff', '#a855f7', '#ff4757', '#ffffff'];
+  const pieces = Array.from({ length: 150 }, () => ({
     x: Math.random() * canvas.width,
     y: Math.random() * -canvas.height,
     w: 8 + Math.random() * 8,
     h: 6 + Math.random() * 6,
     color: colors[Math.floor(Math.random() * colors.length)],
     rot: Math.random() * Math.PI * 2,
-    vx: (Math.random() - 0.5) * 3,
-    vy: 2 + Math.random() * 4,
-    vr: (Math.random() - 0.5) * 0.15,
+    vx: (Math.random() - 0.5) * 4,
+    vy: 2 + Math.random() * 5,
+    vr: (Math.random() - 0.5) * 0.2,
     opacity: 1,
   }));
 
@@ -507,17 +961,18 @@ function launchConfetti() {
       if (p.y > canvas.height) { p.y = -20; p.x = Math.random() * canvas.width; }
     });
     frame++;
-    if (frame < 350) requestAnimationFrame(draw);
+    if (frame < 400) requestAnimationFrame(draw);
     else ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
   draw();
 }
 
-// =============================================
-//  ZASADY — MODAL
-// =============================================
+// =============================================================================
+//  MODALS & WINDOW MANAGEMENT
+// =============================================================================
 
 function toggleRules() {
+  SoundFX.playClick();
   const m = document.getElementById('rulesModal');
   m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
 }
@@ -526,11 +981,32 @@ function closeRulesOnBg(e) {
   if (e.target === document.getElementById('rulesModal')) toggleRules();
 }
 
-// =============================================
-//  INIT
-// =============================================
+function promptNewGame() {
+  SoundFX.playClick();
+  const m = document.getElementById('confirmResetModal');
+  if (m) m.style.display = 'flex';
+}
+
+function closeResetModal() {
+  SoundFX.playClick();
+  const m = document.getElementById('confirmResetModal');
+  if (m) m.style.display = 'none';
+}
+
+function closeResetOnBg(e) {
+  if (e.target === document.getElementById('confirmResetModal')) closeResetModal();
+}
+
+function confirmResetGame() {
+  closeResetModal();
+  restartToStartScreen();
+}
+
+// =============================================================================
+//  INITIAL LOAD
+// =============================================================================
 
 window.onload = function () {
-  // Mały pies nie ma wrappera — upewnij się że display bloku jest poprawny
-  document.getElementById('player2NameWrap').style.display = 'block';
+  const icon = document.getElementById('soundIcon');
+  if (icon && SoundFX.muted) icon.textContent = '🔇';
 };
