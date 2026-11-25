@@ -213,7 +213,10 @@ function makeFarm(isHerd = false) {
   return f;
 }
 
+let matchCounter = 0;
+
 let state = {
+  matchId: 0,
   mode: '2p',
   names: ['Player 1', 'Player 2'],
   herd: null,
@@ -685,6 +688,7 @@ function handleNetMessage(msg) {
 
 function startOnlineMatch(name1, name2, startingPlayer = 0) {
   state = {
+    matchId: ++matchCounter,
     mode: 'online',
     names: [name1, name2],
     herd: makeFarm(true),
@@ -701,6 +705,7 @@ function startOnlineMatch(name1, name2, startingPlayer = 0) {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
+  document.getElementById('confirmResetModal').style.display = 'none';
   document.getElementById('winnerScreen').style.display = 'none';
   document.getElementById('startScreen').style.display = 'none';
   document.getElementById('gameScreen').style.display = 'flex';
@@ -807,6 +812,7 @@ function startGame() {
   const name2 = selectedMode === 'ai' ? 'Computer' : (document.getElementById('player2Name').value.trim() || 'Player 2');
 
   state = {
+    matchId: ++matchCounter,
     mode: selectedMode,
     names: [name1, name2],
     herd: makeFarm(true),
@@ -1077,6 +1083,7 @@ function handlePrimaryAction() {
 }
 
 function executeThrow(playerIdx, forcedR1 = null, forcedR2 = null) {
+  const myMatchId = state.matchId;
   state.rolling = true;
   SoundFX.playRoll();
   updateTurnUI();
@@ -1089,11 +1096,13 @@ function executeThrow(playerIdx, forcedR1 = null, forcedR2 = null) {
   die2El.querySelector('.die-face').textContent = '🎲';
 
   setTimeout(() => {
+    die1El.classList.remove('rolling');
+    die2El.classList.remove('rolling');
+    if (state.matchId !== myMatchId || state.gameOver) return;
+
     const r1 = forcedR1 !== null ? forcedR1 : rollDie(CUBE1);
     const r2 = forcedR2 !== null ? forcedR2 : rollDie(CUBE2);
 
-    die1El.classList.remove('rolling');
-    die2El.classList.remove('rolling');
     die1El.querySelector('.die-face').textContent = getAnimalEmoji(r1);
     die2El.querySelector('.die-face').textContent = getAnimalEmoji(r2);
 
@@ -1318,21 +1327,22 @@ function executeExchange(fc, tc, fa, ta, fromRemote = false) {
 // =============================================================================
 
 function runAITurn() {
+  const myMatchId = state.matchId;
   if (state.gameOver || state.currentPlayer !== 1) return;
 
   setTimeout(() => {
-    if (state.gameOver) return;
+    if (state.gameOver || state.matchId !== myMatchId) return;
     smartAIExchange(1);
 
     setTimeout(() => {
-      if (state.gameOver) return;
+      if (state.gameOver || state.matchId !== myMatchId) return;
       executeThrow(1);
 
       setTimeout(() => {
-        if (state.gameOver) return;
+        if (state.gameOver || state.matchId !== myMatchId) return;
         smartAIExchange(1);
         setTimeout(() => {
-          if (!state.gameOver) advanceTurn();
+          if (!state.gameOver && state.matchId === myMatchId) advanceTurn();
         }, 850);
       }, 1000);
     }, 700);
@@ -1448,9 +1458,13 @@ function handleWinnerPlayAgain() {
 }
 
 function restartToStartScreen() {
+  state.matchId = ++matchCounter;
+  state.gameOver = true;
+  state.rolling = false;
   if (state.mode === 'online' || net.client) {
     cleanupOnlineSession(true);
   }
+  document.getElementById('confirmResetModal').style.display = 'none';
   document.getElementById('winnerScreen').style.display = 'none';
   document.getElementById('gameScreen').style.display = 'none';
   document.getElementById('disconnectBanner').style.display = 'none';
@@ -1585,6 +1599,7 @@ function restartCurrentMatch() {
 
   // Local 2P or vs AI: instant fresh match with same players & mode
   state = {
+    matchId: ++matchCounter,
     mode: state.mode,
     names: [...state.names],
     herd: makeFarm(true),

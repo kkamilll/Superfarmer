@@ -29,7 +29,8 @@ The first farmer to collect at least **one of each of the 5 main species** wins:
   - 🐕 **Small Dog** — blocks the Fox (🦊).
   - 🐩 **Big Dog** — blocks the Wolf (🐺).
 - 🏦 **Collapsible Bank Stock** & **Compact Move History** with expandable full log.
-- 🔊 **Procedural Web Audio Sound Effects** — custom synthesized audio for dice rolls, breeding gains, trades, predators, and victory, with a mute toggle (🔊 / 🔇).
+- 🎛️ **Quick Game Controls** — top bar buttons for **Restart Match** (resets current match locally or for both online players), **Exit to Menu**, **Fullscreen** (`⛶`), **Sound Mute** (`🔊`/`🔇`), **Bank**, and **Rules**.
+- 🔊 **Procedural Web Audio Sound Effects** — custom synthesized audio for dice rolls, breeding gains, trades, predators, and victory.
 - 🎊 **Winner Screen & Confetti Celebration** + animated floating `+1 🐰` / `-1 🐕` deltas.
 - 📖 **In-Game Rules Modal** with quick-reference exchange rates.
 
