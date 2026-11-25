@@ -15,8 +15,8 @@ The first farmer to collect at least **one of each of the 5 main species** wins:
 
 ## ✨ Features & Highlights
 
-- 🌐 **Online 2-Player Mode (PeerJS / WebRTC)**:
-  - Play with a friend over the internet on any static host (**Netlify**, GitHub Pages, Vercel) with **no backend server** or accounts required.
+- 🌐 **Online 2-Player Mode (MQTT over WebSockets)**:
+  - Play with a friend over the internet (Wi-Fi, 4G/5G, mobile or desktop) on any static host (**Netlify**, GitHub Pages, Vercel) with **no backend server** or accounts required.
   - **Create Room** generates a short 5-character room code and a direct **Invite Link** (`?room=CODE`).
   - Real-time synced dice rolls, trades, turn locking, disconnect detection, and one-click **Rematch**.
 - 👥 **Local 2-Player Mode** — pass & play on a single device.
@@ -96,7 +96,7 @@ The game is 100% static HTML/CSS/JS — no build step, no dependencies to instal
 SuperFarmer/
 ├── index.html   — Semantic HTML5 layout, start screen, online lobby, game board & modals
 ├── style.css    — Dark glassmorphism UI, responsive layout, dice & delta animations
-├── script.js    — Game engine, PeerJS online multiplayer, AI bot, Web Audio synth
+├── script.js    — Game engine, MQTT WebSocket multiplayer, AI bot, Web Audio synth
 └── README.md    — Project documentation, rules & deployment guide
 ```
 

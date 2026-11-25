@@ -229,29 +229,30 @@ let selectedMode = '2p';
 let selectedOnlineTab = 'create';
 
 // =============================================================================
-//  ONLINE MULTIPLAYER (PeerJS / WebRTC — Zero-Backend for Static Hosting)
+//  ONLINE MULTIPLAYER (MQTT over WebSockets — Works on 4G/Wi-Fi & Static Hosts)
 // =============================================================================
 
-const PEER_PREFIX = 'sf-online-v1-';
-const PEER_CONFIG = {
-  config: {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-    ],
-  },
-};
+const MQTT_BROKERS = [
+  'wss://broker.emqx.io:8084/mqtt',
+  'wss://broker.hivemq.com:8884/mqtt',
+];
+const ROOM_TOPIC_PREFIX = 'superfarmer-game-v2/room/';
 
 let net = {
-  peer: null,
-  conn: null,
+  client: null,
+  topic: '',
+  senderId: '',
+  peerSenderId: '',
   isHost: false,
   myPlayerIdx: 0,
   roomCode: '',
   connected: false,
+  inMatch: false,
   disconnectedMidGame: false,
   joinTimeout: null,
+  helloInterval: null,
+  msgCounter: 0,
+  seenMsgIds: new Set(),
   startingPlayerNext: 0,
 };
 
@@ -270,6 +271,15 @@ function generateRoomCode() {
   return code;
 }
 
+function makeSenderId() {
+  return 'sf_' + Math.random().toString(36).slice(2, 10) + '_' + Date.now().toString(36);
+}
+
+function nextMsgId() {
+  net.msgCounter += 1;
+  return `${net.senderId}_${net.msgCounter}`;
+}
+
 function setOnlineStatus(msg, type = '') {
   const el = document.getElementById('onlineStatus');
   if (!el) return;
@@ -285,9 +295,14 @@ function setOnlineStatus(msg, type = '') {
 }
 
 function sendNet(payload) {
-  if (net.conn && net.conn.open) {
+  if (net.client && net.client.connected && net.topic) {
     try {
-      net.conn.send(payload);
+      const envelope = {
+        ...payload,
+        senderId: net.senderId,
+        msgId: nextMsgId(),
+      };
+      net.client.publish(net.topic, JSON.stringify(envelope), { qos: 1 });
     } catch (err) {
       console.error('Failed to send network message:', err);
     }
@@ -299,22 +314,29 @@ function cleanupOnlineSession(notifyPeer = true) {
     clearTimeout(net.joinTimeout);
     net.joinTimeout = null;
   }
-  if (notifyPeer && net.conn && net.conn.open) {
+  if (net.helloInterval) {
+    clearInterval(net.helloInterval);
+    net.helloInterval = null;
+  }
+  if (notifyPeer && net.client && net.client.connected && net.topic && net.inMatch) {
     sendNet({ type: 'LEAVE' });
   }
-  if (net.conn) {
-    try { net.conn.close(); } catch (_) {}
-    net.conn = null;
+  if (net.client) {
+    const oldClient = net.client;
+    net.client = null;
+    try { oldClient.end(true); } catch (_) {}
   }
-  if (net.peer) {
-    try { net.peer.destroy(); } catch (_) {}
-    net.peer = null;
-  }
+  net.topic = '';
+  net.senderId = '';
+  net.peerSenderId = '';
   net.connected = false;
+  net.inMatch = false;
   net.disconnectedMidGame = false;
   net.roomCode = '';
   net.isHost = false;
   net.myPlayerIdx = 0;
+  net.msgCounter = 0;
+  net.seenMsgIds.clear();
 
   // Reset lobby UI elements
   const waitBox = document.getElementById('roomWaitingBox');
@@ -331,7 +353,7 @@ function cleanupOnlineSession(notifyPeer = true) {
 function selectOnlineTab(tab) {
   selectedOnlineTab = tab;
   SoundFX.playClick();
-  if (net.peer || net.conn) cleanupOnlineSession(false);
+  if (net.client) cleanupOnlineSession(false);
 
   document.getElementById('tabCreate').classList.toggle('active', tab === 'create');
   document.getElementById('tabJoin').classList.toggle('active', tab === 'join');
@@ -345,61 +367,135 @@ function cancelOnlineLobby() {
   cleanupOnlineSession(false);
 }
 
-function createOnlineRoom(retryCount = 0) {
+function connectMqttBroker(brokerIdx, roomTopic, onReady, onFail) {
+  const brokerUrl = MQTT_BROKERS[brokerIdx];
+  const senderId = net.senderId;
+  let settled = false;
+
+  const client = mqtt.connect(brokerUrl, {
+    clientId: senderId,
+    clean: true,
+    connectTimeout: 6000,
+    reconnectPeriod: 3000,
+    keepalive: 25,
+    will: {
+      topic: roomTopic,
+      payload: JSON.stringify({ type: 'LEAVE', senderId, msgId: 'will_' + senderId }),
+      qos: 1,
+      retain: false,
+    },
+  });
+
+  net.client = client;
+
+  const connectGuard = setTimeout(() => {
+    if (!settled) {
+      settled = true;
+      try { client.end(true); } catch (_) {}
+      if (net.client === client) net.client = null;
+      onFail('timeout');
+    }
+  }, 6500);
+
+  client.on('connect', () => {
+    if (net.client !== client) return;
+    client.subscribe(roomTopic, { qos: 1 }, (err) => {
+      if (settled) return;
+      clearTimeout(connectGuard);
+      settled = true;
+      if (err) {
+        try { client.end(true); } catch (_) {}
+        if (net.client === client) net.client = null;
+        onFail('subscribe-error');
+        return;
+      }
+      onReady(client);
+    });
+  });
+
+  client.on('message', (topic, message) => {
+    if (net.client !== client || topic !== roomTopic) return;
+    let msg;
+    try {
+      msg = JSON.parse(message.toString());
+    } catch (_) {
+      return;
+    }
+    if (!msg || typeof msg !== 'object') return;
+    if (msg.senderId === net.senderId) return;
+    if (msg.msgId) {
+      if (net.seenMsgIds.has(msg.msgId)) return;
+      net.seenMsgIds.add(msg.msgId);
+      if (net.seenMsgIds.size > 300) {
+        const first = net.seenMsgIds.values().next().value;
+        net.seenMsgIds.delete(first);
+      }
+    }
+    handleNetMessage(msg);
+  });
+
+  client.on('error', () => {
+    if (!settled) {
+      clearTimeout(connectGuard);
+      settled = true;
+      try { client.end(true); } catch (_) {}
+      if (net.client === client) net.client = null;
+      onFail('network-error');
+    }
+  });
+}
+
+function createOnlineRoom(brokerIdx = 0) {
   SoundFX.init();
   SoundFX.playClick();
 
-  if (typeof Peer === 'undefined') {
+  if (typeof mqtt === 'undefined') {
     setOnlineStatus('Online library failed to load. Check your internet connection.', 'error');
     return;
   }
 
   cleanupOnlineSession(false);
-  const code = generateRoomCode();
+  const baseCode = generateRoomCode();
+  const displayCode = brokerIdx === 0 ? baseCode : `2${baseCode}`;
+  const roomTopic = ROOM_TOPIC_PREFIX + displayCode;
+
   net.isHost = true;
   net.myPlayerIdx = 0;
-  net.roomCode = code;
+  net.roomCode = displayCode;
+  net.topic = roomTopic;
+  net.senderId = makeSenderId();
 
   const createBtn = document.getElementById('btnCreateRoom');
   createBtn.disabled = true;
   createBtn.textContent = '⏳ Creating room...';
-  setOnlineStatus('Connecting to matchmaking server...');
+  setOnlineStatus('Connecting to game server...');
 
-  const peer = new Peer(PEER_PREFIX + code, PEER_CONFIG);
-  net.peer = peer;
-
-  peer.on('open', () => {
-    setOnlineStatus('');
-    document.getElementById('onlineTabs').style.display = 'none';
-    createBtn.style.display = 'none';
-    document.getElementById('roomCodeDisplay').textContent = code;
-    document.getElementById('roomWaitingBox').style.display = 'flex';
-  });
-
-  peer.on('connection', (conn) => {
-    if (net.conn && net.conn.open) {
-      conn.close();
-      return;
+  connectMqttBroker(
+    brokerIdx,
+    roomTopic,
+    () => {
+      setOnlineStatus('');
+      document.getElementById('onlineTabs').style.display = 'none';
+      createBtn.style.display = 'none';
+      document.getElementById('roomCodeDisplay').textContent = displayCode;
+      document.getElementById('roomWaitingBox').style.display = 'flex';
+    },
+    () => {
+      if (brokerIdx + 1 < MQTT_BROKERS.length) {
+        createOnlineRoom(brokerIdx + 1);
+      } else {
+        cleanupOnlineSession(false);
+        setOnlineStatus('Could not connect to online server. Please try again.', 'error');
+      }
     }
-    net.conn = conn;
-    setupConnectionHandlers(conn);
-  });
-
-  peer.on('error', (err) => {
-    if (err.type === 'unavailable-id' && retryCount < 3) {
-      createOnlineRoom(retryCount + 1);
-      return;
-    }
-    cleanupOnlineSession(false);
-    setOnlineStatus(`Connection error (${err.type || 'network'}). Please try again.`, 'error');
-  });
+  );
 }
 
 function joinOnlineRoom() {
   SoundFX.init();
   SoundFX.playClick();
 
-  if (typeof Peer === 'undefined') {
+  if (typeof mqtt === 'undefined') {
     setOnlineStatus('Online library failed to load. Check your internet connection.', 'error');
     return;
   }
@@ -413,65 +509,48 @@ function joinOnlineRoom() {
   }
 
   cleanupOnlineSession(false);
+  const brokerIdx = rawCode.length === 6 && rawCode.startsWith('2') ? 1 : 0;
+  const roomTopic = ROOM_TOPIC_PREFIX + rawCode;
+
   net.isHost = false;
   net.myPlayerIdx = 1;
   net.roomCode = rawCode;
+  net.topic = roomTopic;
+  net.senderId = makeSenderId();
 
   const joinBtn = document.getElementById('btnJoinRoom');
   joinBtn.disabled = true;
   joinBtn.textContent = '⏳ Joining...';
   setOnlineStatus(`Connecting to room ${rawCode}...`);
 
-  const peer = new Peer(PEER_CONFIG);
-  net.peer = peer;
-
   net.joinTimeout = setTimeout(() => {
-    if (!net.connected) {
+    if (!net.inMatch) {
       cleanupOnlineSession(false);
-      setOnlineStatus(`Could not reach room ${rawCode}. Make sure the host is waiting.`, 'error');
+      setOnlineStatus(`Room ${rawCode} not found. Make sure the host is waiting.`, 'error');
     }
   }, 12000);
 
-  peer.on('open', () => {
-    const conn = peer.connect(PEER_PREFIX + rawCode, { reliable: true });
-    net.conn = conn;
-    setupConnectionHandlers(conn);
-
-    conn.on('open', () => {
-      if (net.joinTimeout) {
-        clearTimeout(net.joinTimeout);
-        net.joinTimeout = null;
-      }
-      net.connected = true;
-      setOnlineStatus('Connected! Starting game...', 'success');
+  connectMqttBroker(
+    brokerIdx,
+    roomTopic,
+    () => {
       const myName = document.getElementById('player1Name').value.trim() || 'Player 2';
+      setOnlineStatus(`Connected to server — waiting for host of ${rawCode}...`);
       sendNet({ type: 'HELLO', name: myName });
-    });
-  });
-
-  peer.on('error', (err) => {
-    cleanupOnlineSession(false);
-    if (err.type === 'peer-unavailable') {
-      setOnlineStatus(`Room ${rawCode} not found. Check the code and try again.`, 'error');
-    } else {
-      setOnlineStatus(`Connection error (${err.type || 'network'}). Please try again.`, 'error');
+      net.helloInterval = setInterval(() => {
+        if (net.inMatch || !net.client) {
+          clearInterval(net.helloInterval);
+          net.helloInterval = null;
+          return;
+        }
+        sendNet({ type: 'HELLO', name: myName });
+      }, 1800);
+    },
+    () => {
+      cleanupOnlineSession(false);
+      setOnlineStatus('Could not connect to online server. Please try again.', 'error');
     }
-  });
-}
-
-function setupConnectionHandlers(conn) {
-  conn.on('data', (msg) => {
-    if (!msg || typeof msg !== 'object') return;
-    handleNetMessage(msg);
-  });
-
-  conn.on('close', () => {
-    handlePeerDisconnect('⚠️ Opponent disconnected from the room.');
-  });
-
-  conn.on('error', () => {
-    handlePeerDisconnect('⚠️ Connection lost with opponent.');
-  });
+  );
 }
 
 function handlePeerDisconnect(reasonText) {
@@ -501,9 +580,26 @@ function handleNetMessage(msg) {
   switch (msg.type) {
     case 'HELLO': {
       if (!net.isHost) return;
+      if (net.inMatch && net.peerSenderId && net.peerSenderId !== msg.senderId) {
+        sendNet({ type: 'ROOM_FULL', target: msg.senderId });
+        return;
+      }
+      if (net.inMatch && net.peerSenderId === msg.senderId) {
+        // Guest retried HELLO before receiving START_GAME — re-send START_GAME
+        sendNet({
+          type: 'START_GAME',
+          names: state.names,
+          startingPlayer: state.currentPlayer,
+          target: msg.senderId,
+        });
+        return;
+      }
+      net.peerSenderId = msg.senderId;
       net.connected = true;
+      net.inMatch = true;
       net.disconnectedMidGame = false;
       net.startingPlayerNext = 0;
+
       const hostName = document.getElementById('player1Name').value.trim() || 'Player 1';
       const guestName = (msg.name || '').trim().slice(0, 16) || 'Player 2';
       startOnlineMatch(hostName, guestName, 0);
@@ -511,16 +607,33 @@ function handleNetMessage(msg) {
         type: 'START_GAME',
         names: [hostName, guestName],
         startingPlayer: 0,
+        target: msg.senderId,
       });
       break;
     }
 
+    case 'ROOM_FULL': {
+      if (net.isHost || net.inMatch) return;
+      if (msg.target && msg.target !== net.senderId) return;
+      cleanupOnlineSession(false);
+      setOnlineStatus('This room is already full.', 'error');
+      break;
+    }
+
     case 'START_GAME': {
+      if (net.isHost) return;
+      if (msg.target && msg.target !== net.senderId) return;
       if (net.joinTimeout) {
         clearTimeout(net.joinTimeout);
         net.joinTimeout = null;
       }
+      if (net.helloInterval) {
+        clearInterval(net.helloInterval);
+        net.helloInterval = null;
+      }
+      net.peerSenderId = msg.senderId;
       net.connected = true;
+      net.inMatch = true;
       net.disconnectedMidGame = false;
       startOnlineMatch(msg.names[0], msg.names[1], msg.startingPlayer || 0);
       break;
@@ -528,35 +641,42 @@ function handleNetMessage(msg) {
 
     case 'ROLL': {
       if (state.mode !== 'online' || state.gameOver) return;
+      if (net.peerSenderId && msg.senderId !== net.peerSenderId) return;
       executeThrow(msg.playerIdx, msg.r1, msg.r2);
       break;
     }
 
     case 'TRADE': {
       if (state.mode !== 'online' || state.gameOver) return;
+      if (net.peerSenderId && msg.senderId !== net.peerSenderId) return;
       executeExchange(msg.fc, msg.tc, msg.fa, msg.ta, true);
       break;
     }
 
     case 'END_TURN': {
       if (state.mode !== 'online' || state.gameOver) return;
+      if (net.peerSenderId && msg.senderId !== net.peerSenderId) return;
       advanceTurn(true, msg.stateSync || null);
       break;
     }
 
     case 'REMATCH_REQUEST': {
       if (!net.isHost || !net.connected) return;
+      if (net.peerSenderId && msg.senderId !== net.peerSenderId) return;
       net.startingPlayerNext = net.startingPlayerNext === 0 ? 1 : 0;
       startOnlineMatch(state.names[0], state.names[1], net.startingPlayerNext);
       sendNet({
         type: 'START_GAME',
         names: [state.names[0], state.names[1]],
         startingPlayer: net.startingPlayerNext,
+        target: net.peerSenderId,
       });
       break;
     }
 
     case 'LEAVE': {
+      if (!net.inMatch) return;
+      if (net.peerSenderId && msg.senderId !== net.peerSenderId) return;
       handlePeerDisconnect('⚠️ Opponent left the game.');
       break;
     }
@@ -1314,6 +1434,7 @@ function handleWinnerPlayAgain() {
         type: 'START_GAME',
         names: [state.names[0], state.names[1]],
         startingPlayer: net.startingPlayerNext,
+        target: net.peerSenderId,
       });
     } else {
       const primaryBtn = document.getElementById('winnerPrimaryBtn');
@@ -1327,7 +1448,7 @@ function handleWinnerPlayAgain() {
 }
 
 function restartToStartScreen() {
-  if (state.mode === 'online' || net.peer || net.conn) {
+  if (state.mode === 'online' || net.client) {
     cleanupOnlineSession(true);
   }
   document.getElementById('winnerScreen').style.display = 'none';
@@ -1430,7 +1551,7 @@ window.onload = function () {
 };
 
 window.addEventListener('beforeunload', () => {
-  if (net.conn && net.conn.open) {
+  if (net.client && net.client.connected && net.inMatch) {
     sendNet({ type: 'LEAVE' });
   }
 });
