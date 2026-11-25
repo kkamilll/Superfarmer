@@ -21,25 +21,22 @@ const CUBE1 = ['krolik','krolik','krolik','krolik','krolik','krolik','owca','owc
 // Die 2: 12 faces (6 rabbits, 2 sheep, 2 pigs, 1 horse, 1 fox)
 const CUBE2 = ['krolik','krolik','krolik','krolik','krolik','krolik','owca','owca','swinia','swinia','kon','lis'];
 
-// Catalog of exchange rates
 const TRADES = [
   // Upgrades
-  { fc: 6, tc: 1, fa: 'krolik', ta: 'owca',     category: 'upgrade'   },
-  { fc: 2, tc: 1, fa: 'owca',   ta: 'swinia',   category: 'upgrade'   },
-  { fc: 3, tc: 1, fa: 'swinia', ta: 'krowa',    category: 'upgrade'   },
-  { fc: 2, tc: 1, fa: 'krowa',  ta: 'kon',      category: 'upgrade'   },
-
-  // Downgrades
-  { fc: 1, tc: 6, fa: 'owca',   ta: 'krolik',   category: 'downgrade' },
-  { fc: 1, tc: 2, fa: 'swinia', ta: 'owca',     category: 'downgrade' },
-  { fc: 1, tc: 3, fa: 'krowa',  ta: 'swinia',   category: 'downgrade' },
-  { fc: 1, tc: 2, fa: 'kon',    ta: 'krowa',    category: 'downgrade' },
-
-  // Dogs
-  { fc: 1, tc: 1, fa: 'owca',   ta: 'malyPies', category: 'dogs'      },
-  { fc: 1, tc: 1, fa: 'malyPies',ta: 'owca',    category: 'dogs'      },
-  { fc: 1, tc: 1, fa: 'krowa',  ta: 'duzyPies', category: 'dogs'      },
-  { fc: 1, tc: 1, fa: 'duzyPies',ta: 'krowa',   category: 'dogs'      },
+  { fc: 6, tc: 1, fa: 'krolik',   ta: 'owca'     },
+  { fc: 2, tc: 1, fa: 'owca',     ta: 'swinia'   },
+  { fc: 3, tc: 1, fa: 'swinia',   ta: 'krowa'    },
+  { fc: 2, tc: 1, fa: 'krowa',    ta: 'kon'      },
+  // Guard Dogs
+  { fc: 1, tc: 1, fa: 'owca',     ta: 'malyPies' },
+  { fc: 1, tc: 1, fa: 'krowa',    ta: 'duzyPies' },
+  // Downgrades & Dog returns
+  { fc: 1, tc: 6, fa: 'owca',     ta: 'krolik'   },
+  { fc: 1, tc: 2, fa: 'swinia',   ta: 'owca'     },
+  { fc: 1, tc: 3, fa: 'krowa',    ta: 'swinia'   },
+  { fc: 1, tc: 2, fa: 'kon',      ta: 'krowa'    },
+  { fc: 1, tc: 1, fa: 'malyPies', ta: 'owca'     },
+  { fc: 1, tc: 1, fa: 'duzyPies', ta: 'krowa'    },
 ];
 
 // =============================================================================
@@ -57,9 +54,7 @@ class SoundFXEngine {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (AudioCtx) this.ctx = new AudioCtx();
     }
-    if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
-    }
+    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
   }
 
   toggleMute() {
@@ -92,18 +87,17 @@ class SoundFXEngine {
     this.init();
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
-    const freqs = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
-    freqs.forEach((freq, idx) => {
+    [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, now + idx * 0.07);
-      gain.gain.setValueAtTime(0.15, now + idx * 0.07);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.25);
+      gain.gain.setValueAtTime(0.14, now + idx * 0.07);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.24);
       osc.connect(gain);
       gain.connect(this.ctx.destination);
       osc.start(now + idx * 0.07);
-      osc.stop(now + idx * 0.07 + 0.28);
+      osc.stop(now + idx * 0.07 + 0.26);
     });
   }
 
@@ -112,18 +106,17 @@ class SoundFXEngine {
     this.init();
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
-    const freqs = [987.77, 1318.51]; // B5, E6
-    freqs.forEach((f, idx) => {
+    [987.77, 1318.51].forEach((f, idx) => {
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(f, now + idx * 0.08);
-      gain.gain.setValueAtTime(0.18, now + idx * 0.08);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.2);
+      gain.gain.setValueAtTime(0.16, now + idx * 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.18);
       osc.connect(gain);
       gain.connect(this.ctx.destination);
       osc.start(now + idx * 0.08);
-      osc.stop(now + idx * 0.08 + 0.22);
+      osc.stop(now + idx * 0.08 + 0.2);
     });
   }
 
@@ -136,13 +129,13 @@ class SoundFXEngine {
     const gain = this.ctx.createGain();
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(220, now);
-    osc.frequency.exponentialRampToValueAtTime(65, now + 0.6);
-    gain.gain.setValueAtTime(0.2, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+    osc.frequency.exponentialRampToValueAtTime(65, now + 0.55);
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
     osc.connect(gain);
     gain.connect(this.ctx.destination);
     osc.start(now);
-    osc.stop(now + 0.7);
+    osc.stop(now + 0.65);
   }
 
   playFox() {
@@ -154,14 +147,14 @@ class SoundFXEngine {
     const gain = this.ctx.createGain();
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(400, now);
-    osc.frequency.linearRampToValueAtTime(700, now + 0.15);
-    osc.frequency.linearRampToValueAtTime(300, now + 0.35);
-    gain.gain.setValueAtTime(0.18, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+    osc.frequency.linearRampToValueAtTime(700, now + 0.14);
+    osc.frequency.linearRampToValueAtTime(300, now + 0.32);
+    gain.gain.setValueAtTime(0.16, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.36);
     osc.connect(gain);
     gain.connect(this.ctx.destination);
     osc.start(now);
-    osc.stop(now + 0.42);
+    osc.stop(now + 0.38);
   }
 
   playVictory() {
@@ -169,24 +162,23 @@ class SoundFXEngine {
     this.init();
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
-    const chords = [
+    [
       { f: [523.25, 659.25, 783.99], t: 0 },
       { f: [587.33, 698.46, 880.00], t: 0.2 },
       { f: [659.25, 783.99, 987.77], t: 0.4 },
       { f: [783.99, 987.77, 1318.51, 1567.98], t: 0.65 },
-    ];
-    chords.forEach(c => {
+    ].forEach(c => {
       c.f.forEach(freq => {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(freq, now + c.t);
-        gain.gain.setValueAtTime(0.12, now + c.t);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + c.t + 0.7);
+        gain.gain.setValueAtTime(0.11, now + c.t);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + c.t + 0.65);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start(now + c.t);
-        osc.stop(now + c.t + 0.75);
+        osc.stop(now + c.t + 0.7);
       });
     });
   }
@@ -200,7 +192,7 @@ class SoundFXEngine {
     const gain = this.ctx.createGain();
     osc.type = 'sine';
     osc.frequency.setValueAtTime(800, now);
-    gain.gain.setValueAtTime(0.06, now);
+    gain.gain.setValueAtTime(0.05, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
     osc.connect(gain);
     gain.connect(this.ctx.destination);
@@ -222,29 +214,469 @@ function makeFarm(isHerd = false) {
 }
 
 let state = {
-  mode: '2p',            // '2p' | 'ai'
+  mode: '2p',
   names: ['Player 1', 'Player 2'],
   herd: null,
   farms: [null, null],
-  currentPlayer: 0,      // 0 | 1
+  currentPlayer: 0,
   phase: 'BEFORE_ROLL',  // 'BEFORE_ROLL' | 'AFTER_ROLL'
-  activeTradeFilter: 'all',
+  showAllTrades: false,
   gameOver: false,
   rolling: false,
 };
 
 let selectedMode = '2p';
+let selectedOnlineTab = 'create';
 
 // =============================================================================
-//  START SCREEN & INITIALIZATION
+//  ONLINE MULTIPLAYER (PeerJS / WebRTC — Zero-Backend for Static Hosting)
+// =============================================================================
+
+const PEER_PREFIX = 'sf-online-v1-';
+const PEER_CONFIG = {
+  config: {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+    ],
+  },
+};
+
+let net = {
+  peer: null,
+  conn: null,
+  isHost: false,
+  myPlayerIdx: 0,
+  roomCode: '',
+  connected: false,
+  disconnectedMidGame: false,
+  joinTimeout: null,
+  startingPlayerNext: 0,
+};
+
+function isMyTurn() {
+  if (state.mode === 'ai') return state.currentPlayer === 0;
+  if (state.mode === 'online') return net.connected && state.currentPlayer === net.myPlayerIdx;
+  return true;
+}
+
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 5; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
+function setOnlineStatus(msg, type = '') {
+  const el = document.getElementById('onlineStatus');
+  if (!el) return;
+  if (!msg) {
+    el.style.display = 'none';
+    el.textContent = '';
+    el.className = 'online-status';
+    return;
+  }
+  el.style.display = 'block';
+  el.textContent = msg;
+  el.className = `online-status ${type}`.trim();
+}
+
+function sendNet(payload) {
+  if (net.conn && net.conn.open) {
+    try {
+      net.conn.send(payload);
+    } catch (err) {
+      console.error('Failed to send network message:', err);
+    }
+  }
+}
+
+function cleanupOnlineSession(notifyPeer = true) {
+  if (net.joinTimeout) {
+    clearTimeout(net.joinTimeout);
+    net.joinTimeout = null;
+  }
+  if (notifyPeer && net.conn && net.conn.open) {
+    sendNet({ type: 'LEAVE' });
+  }
+  if (net.conn) {
+    try { net.conn.close(); } catch (_) {}
+    net.conn = null;
+  }
+  if (net.peer) {
+    try { net.peer.destroy(); } catch (_) {}
+    net.peer = null;
+  }
+  net.connected = false;
+  net.disconnectedMidGame = false;
+  net.roomCode = '';
+  net.isHost = false;
+  net.myPlayerIdx = 0;
+
+  // Reset lobby UI elements
+  const waitBox = document.getElementById('roomWaitingBox');
+  const createBtn = document.getElementById('btnCreateRoom');
+  const tabs = document.getElementById('onlineTabs');
+  const joinBtn = document.getElementById('btnJoinRoom');
+  if (waitBox) waitBox.style.display = 'none';
+  if (createBtn) { createBtn.style.display = 'block'; createBtn.disabled = false; createBtn.textContent = '🌐 CREATE ROOM'; }
+  if (tabs) tabs.style.display = 'grid';
+  if (joinBtn) { joinBtn.disabled = false; joinBtn.textContent = '🚀 JOIN ROOM'; }
+  setOnlineStatus('');
+}
+
+function selectOnlineTab(tab) {
+  selectedOnlineTab = tab;
+  SoundFX.playClick();
+  if (net.peer || net.conn) cleanupOnlineSession(false);
+
+  document.getElementById('tabCreate').classList.toggle('active', tab === 'create');
+  document.getElementById('tabJoin').classList.toggle('active', tab === 'join');
+  document.getElementById('onlineCreateView').style.display = tab === 'create' ? 'flex' : 'none';
+  document.getElementById('onlineJoinView').style.display = tab === 'join' ? 'flex' : 'none';
+  setOnlineStatus('');
+}
+
+function cancelOnlineLobby() {
+  SoundFX.playClick();
+  cleanupOnlineSession(false);
+}
+
+function createOnlineRoom(retryCount = 0) {
+  SoundFX.init();
+  SoundFX.playClick();
+
+  if (typeof Peer === 'undefined') {
+    setOnlineStatus('Online library failed to load. Check your internet connection.', 'error');
+    return;
+  }
+
+  cleanupOnlineSession(false);
+  const code = generateRoomCode();
+  net.isHost = true;
+  net.myPlayerIdx = 0;
+  net.roomCode = code;
+
+  const createBtn = document.getElementById('btnCreateRoom');
+  createBtn.disabled = true;
+  createBtn.textContent = '⏳ Creating room...';
+  setOnlineStatus('Connecting to matchmaking server...');
+
+  const peer = new Peer(PEER_PREFIX + code, PEER_CONFIG);
+  net.peer = peer;
+
+  peer.on('open', () => {
+    setOnlineStatus('');
+    document.getElementById('onlineTabs').style.display = 'none';
+    createBtn.style.display = 'none';
+    document.getElementById('roomCodeDisplay').textContent = code;
+    document.getElementById('roomWaitingBox').style.display = 'flex';
+  });
+
+  peer.on('connection', (conn) => {
+    if (net.conn && net.conn.open) {
+      conn.close();
+      return;
+    }
+    net.conn = conn;
+    setupConnectionHandlers(conn);
+  });
+
+  peer.on('error', (err) => {
+    if (err.type === 'unavailable-id' && retryCount < 3) {
+      createOnlineRoom(retryCount + 1);
+      return;
+    }
+    cleanupOnlineSession(false);
+    setOnlineStatus(`Connection error (${err.type || 'network'}). Please try again.`, 'error');
+  });
+}
+
+function joinOnlineRoom() {
+  SoundFX.init();
+  SoundFX.playClick();
+
+  if (typeof Peer === 'undefined') {
+    setOnlineStatus('Online library failed to load. Check your internet connection.', 'error');
+    return;
+  }
+
+  const input = document.getElementById('joinRoomCodeInput');
+  const rawCode = (input.value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (rawCode.length < 4) {
+    setOnlineStatus('Please enter a valid room code.', 'error');
+    input.focus();
+    return;
+  }
+
+  cleanupOnlineSession(false);
+  net.isHost = false;
+  net.myPlayerIdx = 1;
+  net.roomCode = rawCode;
+
+  const joinBtn = document.getElementById('btnJoinRoom');
+  joinBtn.disabled = true;
+  joinBtn.textContent = '⏳ Joining...';
+  setOnlineStatus(`Connecting to room ${rawCode}...`);
+
+  const peer = new Peer(PEER_CONFIG);
+  net.peer = peer;
+
+  net.joinTimeout = setTimeout(() => {
+    if (!net.connected) {
+      cleanupOnlineSession(false);
+      setOnlineStatus(`Could not reach room ${rawCode}. Make sure the host is waiting.`, 'error');
+    }
+  }, 12000);
+
+  peer.on('open', () => {
+    const conn = peer.connect(PEER_PREFIX + rawCode, { reliable: true });
+    net.conn = conn;
+    setupConnectionHandlers(conn);
+
+    conn.on('open', () => {
+      if (net.joinTimeout) {
+        clearTimeout(net.joinTimeout);
+        net.joinTimeout = null;
+      }
+      net.connected = true;
+      setOnlineStatus('Connected! Starting game...', 'success');
+      const myName = document.getElementById('player1Name').value.trim() || 'Player 2';
+      sendNet({ type: 'HELLO', name: myName });
+    });
+  });
+
+  peer.on('error', (err) => {
+    cleanupOnlineSession(false);
+    if (err.type === 'peer-unavailable') {
+      setOnlineStatus(`Room ${rawCode} not found. Check the code and try again.`, 'error');
+    } else {
+      setOnlineStatus(`Connection error (${err.type || 'network'}). Please try again.`, 'error');
+    }
+  });
+}
+
+function setupConnectionHandlers(conn) {
+  conn.on('data', (msg) => {
+    if (!msg || typeof msg !== 'object') return;
+    handleNetMessage(msg);
+  });
+
+  conn.on('close', () => {
+    handlePeerDisconnect('⚠️ Opponent disconnected from the room.');
+  });
+
+  conn.on('error', () => {
+    handlePeerDisconnect('⚠️ Connection lost with opponent.');
+  });
+}
+
+function handlePeerDisconnect(reasonText) {
+  if (state.mode !== 'online') return;
+  if (!net.connected && !net.disconnectedMidGame) return;
+
+  net.connected = false;
+  net.disconnectedMidGame = true;
+
+  const pill = document.getElementById('onlineRoomPill');
+  if (pill) {
+    pill.textContent = '🔴 Disconnected';
+    pill.classList.add('disconnected');
+  }
+  const banner = document.getElementById('disconnectBanner');
+  const bannerText = document.getElementById('disconnectBannerText');
+  if (banner && bannerText) {
+    bannerText.textContent = reasonText;
+    banner.style.display = 'flex';
+  }
+  log(reasonText, 'bad');
+  updateTurnUI();
+  setupExchangeUI();
+}
+
+function handleNetMessage(msg) {
+  switch (msg.type) {
+    case 'HELLO': {
+      if (!net.isHost) return;
+      net.connected = true;
+      net.disconnectedMidGame = false;
+      net.startingPlayerNext = 0;
+      const hostName = document.getElementById('player1Name').value.trim() || 'Player 1';
+      const guestName = (msg.name || '').trim().slice(0, 16) || 'Player 2';
+      startOnlineMatch(hostName, guestName, 0);
+      sendNet({
+        type: 'START_GAME',
+        names: [hostName, guestName],
+        startingPlayer: 0,
+      });
+      break;
+    }
+
+    case 'START_GAME': {
+      if (net.joinTimeout) {
+        clearTimeout(net.joinTimeout);
+        net.joinTimeout = null;
+      }
+      net.connected = true;
+      net.disconnectedMidGame = false;
+      startOnlineMatch(msg.names[0], msg.names[1], msg.startingPlayer || 0);
+      break;
+    }
+
+    case 'ROLL': {
+      if (state.mode !== 'online' || state.gameOver) return;
+      executeThrow(msg.playerIdx, msg.r1, msg.r2);
+      break;
+    }
+
+    case 'TRADE': {
+      if (state.mode !== 'online' || state.gameOver) return;
+      executeExchange(msg.fc, msg.tc, msg.fa, msg.ta, true);
+      break;
+    }
+
+    case 'END_TURN': {
+      if (state.mode !== 'online' || state.gameOver) return;
+      advanceTurn(true, msg.stateSync || null);
+      break;
+    }
+
+    case 'REMATCH_REQUEST': {
+      if (!net.isHost || !net.connected) return;
+      net.startingPlayerNext = net.startingPlayerNext === 0 ? 1 : 0;
+      startOnlineMatch(state.names[0], state.names[1], net.startingPlayerNext);
+      sendNet({
+        type: 'START_GAME',
+        names: [state.names[0], state.names[1]],
+        startingPlayer: net.startingPlayerNext,
+      });
+      break;
+    }
+
+    case 'LEAVE': {
+      handlePeerDisconnect('⚠️ Opponent left the game.');
+      break;
+    }
+  }
+}
+
+function startOnlineMatch(name1, name2, startingPlayer = 0) {
+  state = {
+    mode: 'online',
+    names: [name1, name2],
+    herd: makeFarm(true),
+    farms: [makeFarm(), makeFarm()],
+    currentPlayer: startingPlayer,
+    phase: 'BEFORE_ROLL',
+    showAllTrades: false,
+    gameOver: false,
+    rolling: false,
+  };
+
+  // Clear invite ?room= param from URL bar cleanly without reloading
+  if (window.history && window.history.replaceState && window.location.search.includes('room=')) {
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
+  document.getElementById('winnerScreen').style.display = 'none';
+  document.getElementById('startScreen').style.display = 'none';
+  document.getElementById('gameScreen').style.display = 'flex';
+  document.getElementById('disconnectBanner').style.display = 'none';
+
+  const pill = document.getElementById('onlineRoomPill');
+  if (pill) {
+    pill.textContent = `🟢 Online · ${net.roomCode}`;
+    pill.classList.remove('disconnected');
+    pill.style.display = 'inline-flex';
+  }
+
+  document.getElementById('p1Label').textContent = net.myPlayerIdx === 0 ? `${name1} (You)` : name1;
+  document.getElementById('p2Label').textContent = net.myPlayerIdx === 1 ? `${name2} (You)` : name2;
+  document.getElementById('p2Avatar').textContent = '🧑‍🌾';
+
+  document.getElementById('diceResult').textContent = isMyTurn()
+    ? 'Your turn — roll the dice!'
+    : `Waiting for ${state.names[state.currentPlayer]} to roll...`;
+  document.getElementById('diceSubText').textContent = '';
+  document.getElementById('die1').querySelector('.die-face').textContent = '🎲';
+  document.getElementById('die2').querySelector('.die-face').textContent = '🎲';
+  document.getElementById('logContent').innerHTML = '';
+  document.getElementById('toggleAllTradesBtn').textContent = 'Show all rates ▾';
+
+  renderAll();
+  log(`🌐 Online match started (Room ${net.roomCode}) — ${playerTag(startingPlayer)} goes first`, 'info');
+}
+
+function copyTextToClipboard(text, successMsg) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      setOnlineStatus(successMsg, 'success');
+    }).catch(() => {
+      fallbackCopy(text, successMsg);
+    });
+  } else {
+    fallbackCopy(text, successMsg);
+  }
+}
+
+function fallbackCopy(text, successMsg) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand('copy');
+    setOnlineStatus(successMsg, 'success');
+  } catch (_) {
+    setOnlineStatus(`Copy manually: ${text}`, '');
+  }
+  document.body.removeChild(ta);
+}
+
+function copyRoomCode() {
+  SoundFX.playClick();
+  if (!net.roomCode) return;
+  copyTextToClipboard(net.roomCode, `Room code "${net.roomCode}" copied!`);
+}
+
+function copyInviteLink() {
+  SoundFX.playClick();
+  if (!net.roomCode) return;
+  const baseUrl = window.location.origin && window.location.origin !== 'null'
+    ? `${window.location.origin}${window.location.pathname}`
+    : window.location.href.split('?')[0];
+  const inviteUrl = `${baseUrl}?room=${net.roomCode}`;
+  copyTextToClipboard(inviteUrl, 'Invite link copied! Send it to your friend.');
+}
+
+// =============================================================================
+//  START SCREEN & TOGGLES
 // =============================================================================
 
 function selectMode(mode) {
+  if (selectedMode === 'online' && mode !== 'online') {
+    cleanupOnlineSession(false);
+  }
   selectedMode = mode;
   SoundFX.playClick();
   document.getElementById('mode2p').classList.toggle('selected', mode === '2p');
+  document.getElementById('modeOnline').classList.toggle('selected', mode === 'online');
   document.getElementById('modeAI').classList.toggle('selected', mode === 'ai');
-  document.getElementById('player2NameWrap').style.display = mode === 'ai' ? 'none' : 'flex';
+
+  const p1Label = document.getElementById('player1NameLabel');
+  if (p1Label) {
+    p1Label.innerHTML = mode === 'online'
+      ? '<span class="label-dot p1-dot"></span> Your Name'
+      : '<span class="label-dot p1-dot"></span> Player 1';
+  }
+  document.getElementById('player2NameWrap').style.display = mode === '2p' ? 'flex' : 'none';
+  document.getElementById('onlinePanel').style.display = mode === 'online' ? 'flex' : 'none';
+  document.getElementById('localStartBtn').style.display = mode === 'online' ? 'none' : 'block';
 }
 
 function startGame() {
@@ -252,7 +684,7 @@ function startGame() {
   SoundFX.playClick();
 
   const name1 = document.getElementById('player1Name').value.trim() || 'Player 1';
-  const name2 = selectedMode === 'ai' ? '🤖 Computer (AI)' : (document.getElementById('player2Name').value.trim() || 'Player 2');
+  const name2 = selectedMode === 'ai' ? 'Computer' : (document.getElementById('player2Name').value.trim() || 'Player 2');
 
   state = {
     mode: selectedMode,
@@ -261,24 +693,29 @@ function startGame() {
     farms: [makeFarm(), makeFarm()],
     currentPlayer: 0,
     phase: 'BEFORE_ROLL',
-    activeTradeFilter: 'all',
+    showAllTrades: false,
     gameOver: false,
     rolling: false,
   };
 
   document.getElementById('startScreen').style.display = 'none';
-  const gs = document.getElementById('gameScreen');
-  gs.style.display = 'flex';
+  document.getElementById('gameScreen').style.display = 'flex';
+  document.getElementById('disconnectBanner').style.display = 'none';
+  document.getElementById('onlineRoomPill').style.display = 'none';
 
   document.getElementById('p1Label').textContent = name1;
   document.getElementById('p2Label').textContent = name2;
-  document.getElementById('p1TypeBadge').textContent = 'Farmer';
-  document.getElementById('p2TypeBadge').textContent = selectedMode === 'ai' ? 'AI Bot' : 'Farmer';
   document.getElementById('p2Avatar').textContent = selectedMode === 'ai' ? '🤖' : '🧑‍🌾';
 
-  setupExchangeUI();
+  document.getElementById('diceResult').textContent = `${name1}, roll the dice!`;
+  document.getElementById('diceSubText').textContent = '';
+  document.getElementById('die1').querySelector('.die-face').textContent = '🎲';
+  document.getElementById('die2').querySelector('.die-face').textContent = '🎲';
+  document.getElementById('logContent').innerHTML = '';
+  document.getElementById('toggleAllTradesBtn').textContent = 'Show all rates ▾';
+
   renderAll();
-  log(`🌾 Game started! Good luck to ${name1} and ${name2}!`, 'info');
+  log(`🌾 Game started — ${playerTag(0)} goes first`, 'info');
 }
 
 function toggleSound() {
@@ -286,6 +723,31 @@ function toggleSound() {
   const icon = document.getElementById('soundIcon');
   if (icon) icon.textContent = isMuted ? '🔇' : '🔊';
   if (!isMuted) SoundFX.playClick();
+}
+
+function toggleBank() {
+  SoundFX.playClick();
+  const strip = document.getElementById('bankStrip');
+  const btn = document.getElementById('bankToggleBtn');
+  const open = strip.style.display === 'none';
+  strip.style.display = open ? 'flex' : 'none';
+  btn.classList.toggle('active', open);
+}
+
+function toggleHistory() {
+  const drawer = document.getElementById('historyDrawer');
+  const btn = document.getElementById('historyToggleBtn');
+  const open = drawer.style.display === 'none';
+  drawer.style.display = open ? 'block' : 'none';
+  btn.textContent = open ? 'Hide ▴' : 'History ▾';
+}
+
+function toggleShowAllTrades() {
+  SoundFX.playClick();
+  state.showAllTrades = !state.showAllTrades;
+  document.getElementById('toggleAllTradesBtn').textContent =
+    state.showAllTrades ? 'Available only ▴' : 'Show all rates ▾';
+  setupExchangeUI();
 }
 
 // =============================================================================
@@ -297,7 +759,7 @@ function renderAll() {
   renderFarm(0);
   renderFarm(1);
   updateTurnUI();
-  updateExchangeUI();
+  setupExchangeUI();
 }
 
 function renderHerd() {
@@ -305,13 +767,10 @@ function renderHerd() {
   el.innerHTML = '';
   for (const k in ANIMALS) {
     const a = ANIMALS[k];
-    const isEmpty = state.herd[k] === 0;
     el.innerHTML += `
-      <div class="animal-slot ${isEmpty ? 'empty' : ''}" id="slot-herd-${k}" title="Bank Herd: ${a.name}">
-        <span class="animal-emoji">${a.emoji}</span>
-        <div class="animal-count" id="herd-${k}">${state.herd[k]}</div>
-        <div class="animal-name">${a.name}</div>
-      </div>`;
+      <span class="bank-pill ${state.herd[k] === 0 ? 'empty' : ''}" id="slot-herd-${k}" title="${a.name} in Bank">
+        ${a.emoji} <span id="herd-${k}">${state.herd[k]}</span>
+      </span>`;
   }
 }
 
@@ -319,17 +778,19 @@ function renderFarm(playerIdx) {
   const pNum = playerIdx + 1;
   const el = document.getElementById(`p${pNum}-farm`);
   el.innerHTML = '';
-  for (const k in ANIMALS) {
+
+  WIN_ANIMALS.forEach(k => {
     const a = ANIMALS[k];
     const count = state.farms[playerIdx][k];
-    const isEmpty = count === 0;
+    const owned = count > 0;
     el.innerHTML += `
-      <div class="animal-slot ${isEmpty ? 'empty' : ''}" id="slot-p${pNum}-${k}" title="${a.name} on farm">
-        <span class="animal-emoji">${a.emoji}</span>
-        <div class="animal-count" id="p${pNum}-${k}">${count}</div>
-        <div class="animal-name">${a.name}</div>
+      <div class="species-slot ${owned ? 'owned' : ''}" id="slot-p${pNum}-${k}" title="${a.name}">
+        <span class="species-check" id="p${pNum}-check-${k}">✅</span>
+        <span class="species-emoji">${a.emoji}</span>
+        <span class="species-count" id="p${pNum}-${k}">${count}</span>
       </div>`;
-  }
+  });
+
   updatePlayerBadges(playerIdx);
 }
 
@@ -344,81 +805,90 @@ function updateCounts() {
       const pNum = i + 1;
       const count = state.farms[i][k];
       const fEl = document.getElementById(`p${pNum}-${k}`);
-      const fSlot = document.getElementById(`slot-p${pNum}-${k}`);
       if (fEl) fEl.textContent = count;
-      if (fSlot) fSlot.classList.toggle('empty', count === 0);
+
+      if (ANIMALS[k].isWinTarget) {
+        const fSlot = document.getElementById(`slot-p${pNum}-${k}`);
+        if (fSlot) fSlot.classList.toggle('owned', count > 0);
+      }
     }
   }
   updatePlayerBadges(0);
   updatePlayerBadges(1);
-  updateExchangeUI();
+  setupExchangeUI();
 }
 
 function updatePlayerBadges(playerIdx) {
   const pNum = playerIdx + 1;
   const farm = state.farms[playerIdx];
 
-  // Victory Badges (5 Target Species)
-  let winCount = 0;
-  WIN_ANIMALS.forEach(animalKey => {
-    const slot = document.getElementById(`p${pNum}-vic-${animalKey}`);
-    const hasAnimal = farm[animalKey] > 0;
-    if (slot) {
-      slot.classList.toggle('collected', hasAnimal);
-      const statusSpan = slot.querySelector('.vic-status');
-      if (statusSpan) statusSpan.textContent = hasAnimal ? '✅' : '❌';
-    }
-    if (hasAnimal) winCount++;
-  });
+  const winCount = WIN_ANIMALS.filter(k => farm[k] > 0).length;
+  document.getElementById(`p${pNum}-progress-label`).textContent = `${winCount} / 5`;
+  document.getElementById(`p${pNum}-progress`).style.width = `${(winCount / 5) * 100}%`;
 
-  const progressLabel = document.getElementById(`p${pNum}-progress-label`);
-  if (progressLabel) progressLabel.textContent = `${winCount} / 5`;
-  const progressBar = document.getElementById(`p${pNum}-progress`);
-  if (progressBar) progressBar.style.width = `${(winCount / 5) * 100}%`;
-
-  // Dog Defense Shields
-  const foxBadge = document.getElementById(`p${pNum}-def-fox`);
-  const foxState = document.getElementById(`p${pNum}-def-fox-state`);
-  const hasFoxDef = farm.malyPies > 0;
-  if (foxBadge) foxBadge.classList.toggle('active-def', hasFoxDef);
-  if (foxState) foxState.textContent = hasFoxDef ? `Active (${farm.malyPies}🐕) 🛡️` : 'No Dog ⚠️';
-
-  const wolfBadge = document.getElementById(`p${pNum}-def-wolf`);
-  const wolfState = document.getElementById(`p${pNum}-def-wolf-state`);
-  const hasWolfDef = farm.duzyPies > 0;
-  if (wolfBadge) wolfBadge.classList.toggle('active-def', hasWolfDef);
-  if (wolfState) wolfState.textContent = hasWolfDef ? `Active (${farm.duzyPies}🐩) 🛡️` : 'No Dog ⚠️';
+  const foxPill = document.getElementById(`slot-p${pNum}-malyPies`);
+  const wolfPill = document.getElementById(`slot-p${pNum}-duzyPies`);
+  if (foxPill) foxPill.classList.toggle('active-def', farm.malyPies > 0);
+  if (wolfPill) wolfPill.classList.toggle('active-def', farm.duzyPies > 0);
+  document.getElementById(`p${pNum}-malyPies`).textContent = farm.malyPies;
+  document.getElementById(`p${pNum}-duzyPies`).textContent = farm.duzyPies;
 }
 
 function updateTurnUI() {
   const p = state.currentPlayer;
   const name = state.names[p];
   const isAI = state.mode === 'ai' && p === 1;
+  const isOnline = state.mode === 'online';
+  const canAct = isMyTurn();
 
-  document.getElementById('turnBadgeText').textContent = `Turn: ${name}`;
+  const gameScreen = document.getElementById('gameScreen');
+  gameScreen.classList.toggle('turn-p1', p === 0);
+  gameScreen.classList.toggle('turn-p2', p === 1);
+
+  if (isOnline) {
+    document.getElementById('turnBadgeText').textContent = canAct ? 'Your Turn' : `${name}'s Turn`;
+  } else {
+    document.getElementById('turnBadgeText').textContent = isAI ? `🤖 ${name}'s Turn` : `${name}'s Turn`;
+  }
+
   document.getElementById('p1Card').classList.toggle('active', p === 0);
   document.getElementById('p2Card').classList.toggle('active', p === 1);
 
-  const phaseTag = document.getElementById('dicePhaseTag');
-  const phaseIndicator = document.getElementById('turnPhaseIndicator');
-  const throwBtn = document.getElementById('throwBtn');
-  const endTurnBtn = document.getElementById('endTurnBtn');
+  document.getElementById('p1TurnTag').textContent = p === 0 ? 'TURN' : 'WAIT';
+  document.getElementById('p2TurnTag').textContent = p === 1 ? (isAI ? 'AI' : 'TURN') : 'WAIT';
 
-  if (state.phase === 'BEFORE_ROLL') {
-    if (phaseTag) phaseTag.textContent = 'PHASE 1: ROLL OR TRADE';
-    if (phaseIndicator) phaseIndicator.textContent = 'Step 1: Execute trades on the market or roll the dice';
-    if (throwBtn) throwBtn.disabled = isAI || state.rolling;
-    if (endTurnBtn) endTurnBtn.disabled = true;
+  document.getElementById('marketOwnerPill').textContent = name;
+  document.getElementById('exchangeSection').classList.toggle('locked', !canAct || state.rolling || state.gameOver);
+
+  // Single primary action button — impossible to click the wrong one!
+  const btn = document.getElementById('primaryActionBtn');
+  btn.classList.remove('mode-roll', 'mode-end', 'mode-ai');
+
+  if (isOnline && !net.connected) {
+    btn.classList.add('mode-ai');
+    btn.textContent = '🔴 Opponent Disconnected';
+    btn.disabled = true;
+  } else if (isAI) {
+    btn.classList.add('mode-ai');
+    btn.textContent = '🤖 AI is playing...';
+    btn.disabled = true;
+  } else if (isOnline && !canAct) {
+    btn.classList.add('mode-ai');
+    btn.textContent = state.rolling ? `🎲 ${name} is rolling...` : `⏳ Waiting for ${name}...`;
+    btn.disabled = true;
+  } else if (state.phase === 'BEFORE_ROLL') {
+    btn.classList.add('mode-roll');
+    btn.textContent = state.rolling ? '🎲 Rolling...' : '🎲 ROLL DICE';
+    btn.disabled = state.rolling || state.gameOver;
   } else {
-    if (phaseTag) phaseTag.textContent = 'PHASE 2: SUMMARY & TRADE';
-    if (phaseIndicator) phaseIndicator.textContent = 'Step 2: Check your newborn animals, trade, and end turn';
-    if (throwBtn) throwBtn.disabled = true;
-    if (endTurnBtn) endTurnBtn.disabled = isAI || state.rolling;
+    btn.classList.add('mode-end');
+    btn.textContent = '➡️ END TURN';
+    btn.disabled = state.rolling || state.gameOver;
   }
 }
 
 // =============================================================================
-//  ANIMATED FLOATING LABELS (FLOATING DELTA)
+//  FLOATING DELTAS & LOGGING
 // =============================================================================
 
 function showFloatingDelta(elementId, text, isPositive = true) {
@@ -435,25 +905,24 @@ function showFloatingDelta(elementId, text, isPositive = true) {
   delta.style.top = `${rect.top + rect.height / 3}px`;
   container.appendChild(delta);
 
-  setTimeout(() => delta.remove(), 1200);
+  setTimeout(() => delta.remove(), 1100);
 }
 
-// =============================================================================
-//  GAME EVENT LOGGING
-// =============================================================================
+function playerTag(playerIdx) {
+  const cls = playerIdx === 0 ? 'p1' : 'p2';
+  return `<span class="log-player-tag ${cls}">${state.names[playerIdx]}</span>`;
+}
 
 function log(msg, type = '') {
+  const lastMove = document.getElementById('lastMoveText');
+  if (lastMove) lastMove.innerHTML = msg;
+
   const box = document.getElementById('logContent');
   if (!box) return;
   const div = document.createElement('div');
   div.className = `log-entry ${type}`;
   div.innerHTML = msg;
   box.prepend(div);
-}
-
-function clearLogs() {
-  const box = document.getElementById('logContent');
-  if (box) box.innerHTML = '';
 }
 
 // =============================================================================
@@ -470,12 +939,24 @@ function getAnimalEmoji(result) {
   return ANIMALS[result].emoji;
 }
 
-function handleThrow() {
-  if (state.gameOver || state.rolling || state.phase !== 'BEFORE_ROLL') return;
-  executeThrow(state.currentPlayer);
+function handlePrimaryAction() {
+  if (state.gameOver || state.rolling) return;
+  if (!isMyTurn()) return;
+
+  if (state.phase === 'BEFORE_ROLL') {
+    const r1 = rollDie(CUBE1);
+    const r2 = rollDie(CUBE2);
+    if (state.mode === 'online') {
+      sendNet({ type: 'ROLL', playerIdx: state.currentPlayer, r1, r2 });
+    }
+    executeThrow(state.currentPlayer, r1, r2);
+  } else {
+    SoundFX.playClick();
+    advanceTurn(false);
+  }
 }
 
-function executeThrow(playerIdx) {
+function executeThrow(playerIdx, forcedR1 = null, forcedR2 = null) {
   state.rolling = true;
   SoundFX.playRoll();
   updateTurnUI();
@@ -487,311 +968,226 @@ function executeThrow(playerIdx) {
   die1El.querySelector('.die-face').textContent = '🎲';
   die2El.querySelector('.die-face').textContent = '🎲';
 
-  const calcBox = document.getElementById('calcBreakdown');
-  if (calcBox) calcBox.style.display = 'none';
-
   setTimeout(() => {
-    const r1 = rollDie(CUBE1);
-    const r2 = rollDie(CUBE2);
+    const r1 = forcedR1 !== null ? forcedR1 : rollDie(CUBE1);
+    const r2 = forcedR2 !== null ? forcedR2 : rollDie(CUBE2);
 
     die1El.classList.remove('rolling');
     die2El.classList.remove('rolling');
     die1El.querySelector('.die-face').textContent = getAnimalEmoji(r1);
     die2El.querySelector('.die-face').textContent = getAnimalEmoji(r2);
 
-    const name = state.names[playerIdx];
-    document.getElementById('diceResult').textContent =
-      `${name} rolled: ${getAnimalEmoji(r1)} and ${getAnimalEmoji(r2)}`;
-
     processRoll(playerIdx, r1, r2);
-    updateCounts();
 
     state.rolling = false;
     state.phase = 'AFTER_ROLL';
+    updateCounts();
     updateTurnUI();
 
-    if (!state.gameOver) {
-      checkWin(playerIdx);
-    }
-  }, 580);
+    if (!state.gameOver) checkWin(playerIdx);
+  }, 540);
 }
 
 function processRoll(playerIdx, r1, r2) {
   const farm = state.farms[playerIdx];
-  const name = state.names[playerIdx];
   const pNum = playerIdx + 1;
-  const calcBox = document.getElementById('calcBreakdown');
-  const calcText = document.getElementById('calcBreakdownText');
+  const resultEl = document.getElementById('diceResult');
+  const subEl = document.getElementById('diceSubText');
 
   const isWolf = (r1 === 'wilk');
   const isFox = (r2 === 'lis');
 
-  // Predator encounters
   if (isWolf || isFox) {
-    if (isWolf) handleWolf(playerIdx, name);
-    if (isFox) handleFox(playerIdx, name);
+    let msgs = [];
+    if (isWolf) msgs.push(handleWolf(playerIdx));
+    if (isFox)  msgs.push(handleFox(playerIdx));
+    resultEl.textContent = msgs.join(' · ');
+    subEl.textContent = '';
     return;
   }
 
-  // Normal roll — breeding calculation
   const rolledCounts = {};
   [r1, r2].forEach(r => rolledCounts[r] = (rolledCounts[r] || 0) + 1);
 
   let gainedList = [];
-  let explanations = [];
-
   for (const animal in rolledCounts) {
-    const farmCount = farm[animal] || 0;
-    const diceCount = rolledCounts[animal];
-    const sum = farmCount + diceCount;
-    // For every full pair (sum ÷ 2), the player gets 1 new offspring from bank
+    const sum = (farm[animal] || 0) + rolledCounts[animal];
     const toAdd = Math.floor(sum / 2);
-
     if (toAdd > 0) {
-      const inStock = state.herd[animal];
-      const actualAdd = Math.min(toAdd, inStock);
-
+      const actualAdd = Math.min(toAdd, state.herd[animal]);
       if (actualAdd > 0) {
         farm[animal] += actualAdd;
         state.herd[animal] -= actualAdd;
-        gainedList.push(`+${actualAdd} ${ANIMALS[animal].emoji} (${ANIMALS[animal].name})`);
+        gainedList.push(`+${actualAdd} ${ANIMALS[animal].emoji}`);
         showFloatingDelta(`slot-p${pNum}-${animal}`, `+${actualAdd} ${ANIMALS[animal].emoji}`, true);
-        explanations.push(`• <strong>${ANIMALS[animal].name}</strong>: Farm has (${farmCount}) + Rolled on dice (${diceCount}) = Total <strong>${sum} pcs</strong> (i.e. <strong>${toAdd} ${toAdd === 1 ? 'pair' : 'pairs'}</strong>) ➔ Received <strong>+${actualAdd} ${ANIMALS[animal].emoji}</strong> from Bank.`);
-      } else {
-        explanations.push(`• <strong>${ANIMALS[animal].name}</strong>: Eligible for +${toAdd}, but Bank is completely out of stock!`);
       }
-    } else {
-      explanations.push(`• <strong>${ANIMALS[animal].name}</strong>: Farm has (${farmCount}) + Rolled (${diceCount}) = <strong>${sum} pcs</strong> (Need at least 2 to form a breeding pair).`);
     }
   }
 
   if (gainedList.length > 0) {
     SoundFX.playGain();
-    log(`🎲 <strong>${name}</strong> expanded herd: ${gainedList.join(', ')}`, 'good');
+    resultEl.textContent = `Gained ${gainedList.join('  ')}`;
+    subEl.textContent = isMyTurn() ? 'Trade below or click End Turn' : `${state.names[playerIdx]} is deciding...`;
+    log(`${playerTag(playerIdx)} rolled ${getAnimalEmoji(r1)}${getAnimalEmoji(r2)} ➔ <strong>${gainedList.join(', ')}</strong>`, 'good');
   } else {
-    log(`🎲 <strong>${name}</strong>: No new animal pairs from this roll.`, '');
-  }
-
-  if (calcBox && calcText) {
-    calcBox.style.display = 'block';
-    calcText.innerHTML = explanations.join('<br/>');
+    resultEl.textContent = 'No new pairs';
+    subEl.textContent = isMyTurn() ? 'Need 2 of a kind (farm + dice)' : `${state.names[playerIdx]} is deciding...`;
+    log(`${playerTag(playerIdx)} rolled ${getAnimalEmoji(r1)}${getAnimalEmoji(r2)} — no pairs`, '');
   }
 }
 
-function handleWolf(playerIdx, name) {
+function handleWolf(playerIdx) {
   const farm = state.farms[playerIdx];
   const pNum = playerIdx + 1;
-  const calcBox = document.getElementById('calcBreakdown');
-  const calcText = document.getElementById('calcBreakdownText');
-
   SoundFX.playWolf();
 
   if (farm.duzyPies > 0) {
     state.herd.duzyPies++;
     farm.duzyPies--;
     showFloatingDelta(`slot-p${pNum}-duzyPies`, '-1 🐩', false);
-    log(`🐺 <strong>Wolf attacked!</strong> Big Dog 🐩 successfully defended ${name}'s farm and repelled the predator!`, 'good');
-    if (calcBox && calcText) {
-      calcBox.style.display = 'block';
-      calcText.innerHTML = '🛡️ <strong>Defense Successful!</strong> Big Dog 🐩 repelled the Wolf and returned to the bank. Your herd is safe.';
-    }
+    log(`${playerTag(playerIdx)} 🐺 Wolf blocked by Big Dog 🐩!`, 'good');
+    return '🛡️ Big Dog stopped the Wolf!';
   } else {
     let lost = [];
     for (const k in farm) {
       if (k !== 'kon' && k !== 'duzyPies' && farm[k] > 0) {
         state.herd[k] += farm[k];
-        lost.push(`${farm[k]} ${ANIMALS[k].emoji}`);
+        lost.push(`${farm[k]}${ANIMALS[k].emoji}`);
         showFloatingDelta(`slot-p${pNum}-${k}`, `-${farm[k]} ${ANIMALS[k].emoji}`, false);
         farm[k] = 0;
       }
     }
-    if (lost.length > 0) {
-      log(`🐺 <strong>Wolf raided ${name}'s farm!</strong> Lost: ${lost.join(', ')} (Horses and Big Dogs survived).`, 'bad');
-    } else {
-      log(`🐺 Wolf visited ${name}'s farm, but the farm was empty!`, 'bad');
-    }
-    if (calcBox && calcText) {
-      calcBox.style.display = 'block';
-      calcText.innerHTML = '⚠️ <strong>Wolf Attack!</strong> No Big Dog available. All animals (except Horses) were devoured and returned to the bank.';
-    }
+    log(`${playerTag(playerIdx)} 🐺 Wolf attack! ${lost.length ? 'Lost ' + lost.join(', ') : 'Farm was empty'}`, 'bad');
+    return lost.length ? '🐺 Wolf ate your herd!' : '🐺 Wolf found nothing';
   }
 }
 
-function handleFox(playerIdx, name) {
+function handleFox(playerIdx) {
   const farm = state.farms[playerIdx];
   const pNum = playerIdx + 1;
-  const calcBox = document.getElementById('calcBreakdown');
-  const calcText = document.getElementById('calcBreakdownText');
-
   SoundFX.playFox();
 
   if (farm.malyPies > 0) {
     state.herd.malyPies++;
     farm.malyPies--;
     showFloatingDelta(`slot-p${pNum}-malyPies`, '-1 🐕', false);
-    log(`🦊 <strong>Fox attacked!</strong> Small Dog 🐕 protected ${name}'s rabbits!`, 'good');
-    if (calcBox && calcText) {
-      calcBox.style.display = 'block';
-      calcText.innerHTML = '🛡️ <strong>Defense Successful!</strong> Small Dog 🐕 repelled the Fox and returned to the bank. Rabbits are safe.';
-    }
+    log(`${playerTag(playerIdx)} 🦊 Fox blocked by Small Dog 🐕!`, 'good');
+    return '🛡️ Small Dog stopped the Fox!';
   } else {
     const lost = farm.krolik;
     state.herd.krolik += lost;
     farm.krolik = 0;
-    if (lost > 0) {
-      showFloatingDelta(`slot-p${pNum}-krolik`, `-${lost} 🐰`, false);
-      log(`🦊 <strong>Fox devoured all rabbits (${lost} 🐰)</strong> from ${name}'s farm!`, 'bad');
-    } else {
-      log(`🦊 Fox visited ${name}'s farm, but there were no rabbits to eat.`, 'bad');
-    }
-    if (calcBox && calcText) {
-      calcBox.style.display = 'block';
-      calcText.innerHTML = '⚠️ <strong>Fox Attack!</strong> No Small Dog available. All rabbits 🐰 were devoured and returned to the bank.';
-    }
+    if (lost > 0) showFloatingDelta(`slot-p${pNum}-krolik`, `-${lost} 🐰`, false);
+    log(`${playerTag(playerIdx)} 🦊 Fox attack! ${lost ? `Lost ${lost}🐰` : 'No rabbits'}`, 'bad');
+    return lost ? `🦊 Fox ate ${lost} 🐰!` : '🦊 Fox found no rabbits';
   }
 }
 
-function handleEndTurn() {
-  if (state.gameOver || state.rolling || state.phase !== 'AFTER_ROLL') return;
-  SoundFX.playClick();
-  advanceTurn();
-}
+function advanceTurn(fromRemote = false, stateSync = null) {
+  if (stateSync && stateSync.herd && stateSync.farms) {
+    state.herd = { ...stateSync.herd };
+    state.farms = [{ ...stateSync.farms[0] }, { ...stateSync.farms[1] }];
+  }
 
-function advanceTurn() {
   state.currentPlayer = state.currentPlayer === 0 ? 1 : 0;
   state.phase = 'BEFORE_ROLL';
+
+  if (!fromRemote && state.mode === 'online') {
+    sendNet({
+      type: 'END_TURN',
+      stateSync: {
+        herd: { ...state.herd },
+        farms: [{ ...state.farms[0] }, { ...state.farms[1] }],
+      },
+    });
+  }
+
   updateCounts();
   updateTurnUI();
 
   const nextName = state.names[state.currentPlayer];
-  log(`➡️ <strong>Turn finished.</strong> Next up: ${nextName}`, 'info');
+  const isAI = state.mode === 'ai' && state.currentPlayer === 1;
+  if (state.mode === 'online') {
+    document.getElementById('diceResult').textContent = isMyTurn()
+      ? 'Your turn — roll the dice!'
+      : `Waiting for ${nextName} to roll...`;
+  } else {
+    document.getElementById('diceResult').textContent = isAI ? `${nextName} is rolling...` : `${nextName}, roll the dice!`;
+  }
+  document.getElementById('diceSubText').textContent = '';
 
-  // Trigger AI turn if applicable
-  if (state.mode === 'ai' && state.currentPlayer === 1 && !state.gameOver) {
-    setTimeout(() => runAITurn(), 900);
+  if (isAI && !state.gameOver) {
+    setTimeout(() => runAITurn(), 800);
   }
 }
 
 // =============================================================================
-//  ANIMAL EXCHANGE MARKET
+//  SMART TRADE BAR (1-CLICK CHIPS)
 // =============================================================================
-
-function filterTrades(category) {
-  state.activeTradeFilter = category;
-  SoundFX.playClick();
-  document.querySelectorAll('.filter-tab').forEach(tab => {
-    tab.classList.toggle('active', tab.getAttribute('data-category') === category);
-  });
-  setupExchangeUI();
-}
 
 function setupExchangeUI() {
-  const grid = document.getElementById('exchangeTools');
-  if (!grid) return;
-  grid.innerHTML = '';
+  const container = document.getElementById('exchangeTools');
+  if (!container) return;
+  container.innerHTML = '';
 
   const playerFarm = state.farms[state.currentPlayer];
-  const pNum = state.currentPlayer + 1;
+  const canAct = isMyTurn() && !state.rolling && !state.gameOver;
 
-  // Compute category counts
-  const catCounts = { all: TRADES.length, upgrade: 0, downgrade: 0, dogs: 0 };
-  TRADES.forEach(t => catCounts[t.category]++);
-  for (const c in catCounts) {
-    const el = document.getElementById(`count-${c}`);
-    if (el) el.textContent = catCounts[c];
+  const enriched = TRADES.map(t => {
+    const playerHas = playerFarm ? playerFarm[t.fa] : 0;
+    const bankHas = state.herd ? state.herd[t.ta] : 0;
+    const isAffordable = playerHas >= t.fc && bankHas >= t.tc;
+    return { ...t, isAffordable };
+  });
+
+  const list = state.showAllTrades
+    ? [...enriched].sort((a, b) => Number(b.isAffordable) - Number(a.isAffordable))
+    : enriched.filter(t => t.isAffordable);
+
+  if (list.length === 0) {
+    container.innerHTML = `<span class="trade-empty">No trades available right now — roll the dice to collect animals.</span>`;
+    return;
   }
 
-  const filtered = state.activeTradeFilter === 'all'
-    ? TRADES
-    : TRADES.filter(t => t.category === state.activeTradeFilter);
-
-  filtered.forEach(trade => {
-    const { fc, tc, fa, ta } = trade;
-    const playerHas = playerFarm ? playerFarm[fa] : 0;
-    const bankHas = state.herd ? state.herd[ta] : 0;
-
-    const maxByPlayer = Math.floor(playerHas / fc);
-    const maxByBank = Math.floor(bankHas / tc);
-    const maxTrades = Math.min(maxByPlayer, maxByBank);
-    const isAffordable = maxTrades >= 1;
-    const isOutOfStock = bankHas < tc;
-
-    let cardClass = 'ex-card';
-    if (isAffordable) cardClass += ' affordable';
-    else if (isOutOfStock) cardClass += ' out-of-stock';
-    else cardClass += ' unaffordable';
-
-    const card = document.createElement('div');
-    card.className = cardClass;
-    card.innerHTML = `
-      <div class="ex-card-flow">
-        <div class="ex-side">
-          <span class="ex-side-emoji">${ANIMALS[fa].emoji}</span>
-          <div class="ex-side-info">
-            <span class="ex-side-count">${fc}x</span>
-            <span class="ex-side-name">${ANIMALS[fa].name}</span>
-          </div>
-        </div>
-        <div class="ex-arrow-badge">➔</div>
-        <div class="ex-side">
-          <span class="ex-side-emoji">${ANIMALS[ta].emoji}</span>
-          <div class="ex-side-info">
-            <span class="ex-side-count">+${tc}x</span>
-            <span class="ex-side-name">${ANIMALS[ta].name}</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="ex-card-status">
-        <span class="ex-status-you">You have: <strong>${playerHas}</strong> / ${fc}</span>
-        <span class="ex-status-bank">In bank: <strong>${bankHas}</strong></span>
-      </div>
-
-      <div class="ex-card-actions">
-        <button class="btn-trade-action" ${!isAffordable ? 'disabled' : ''} onclick="executeExchange(${fc}, ${tc}, '${fa}', '${ta}', 1)">
-          ${isAffordable ? 'Trade 1x' : (isOutOfStock ? 'Out of Stock' : 'Need more animals')}
-        </button>
-        ${maxTrades >= 2 ? `<button class="btn-trade-max" title="Trade maximum affordable quantity (${maxTrades}x)" onclick="executeExchange(${fc}, ${tc}, '${fa}', '${ta}', ${maxTrades})">MAX (${maxTrades}x)</button>` : ''}
-      </div>
+  list.forEach(t => {
+    const canClick = t.isAffordable && canAct;
+    const btn = document.createElement('button');
+    btn.className = `trade-chip ${t.isAffordable ? '' : 'disabled-chip'}`;
+    btn.disabled = !canClick;
+    btn.title = `Give ${t.fc} ${ANIMALS[t.fa].name} → Get ${t.tc} ${ANIMALS[t.ta].name}`;
+    btn.onclick = () => executeExchange(t.fc, t.tc, t.fa, t.ta, false);
+    btn.innerHTML = `
+      <span class="chip-side"><span class="chip-num">${t.fc}</span><span class="chip-emoji">${ANIMALS[t.fa].emoji}</span></span>
+      <span class="chip-arrow">➔</span>
+      <span class="chip-side"><span class="chip-num">${t.tc}</span><span class="chip-emoji">${ANIMALS[t.ta].emoji}</span></span>
     `;
-
-    grid.appendChild(card);
+    container.appendChild(btn);
   });
 }
 
-function updateExchangeUI() {
-  setupExchangeUI();
-}
-
-function executeExchange(fc, tc, fa, ta, times = 1) {
-  if (state.gameOver) return;
+function executeExchange(fc, tc, fa, ta, fromRemote = false) {
+  if (state.gameOver || state.rolling) return;
+  if (!fromRemote && !isMyTurn()) return;
   const p = state.currentPlayer;
   const farm = state.farms[p];
-  const name = state.names[p];
   const pNum = p + 1;
 
-  const totalFrom = fc * times;
-  const totalTo = tc * times;
+  if (farm[fa] < fc || state.herd[ta] < tc) return;
 
-  if (farm[fa] < totalFrom) {
-    log(`❌ Not enough ${ANIMALS[fa].emoji} on ${name}'s farm!`, 'bad');
-    return;
-  }
-  if (state.herd[ta] < totalTo) {
-    log(`❌ Main Herd does not have ${totalTo}x ${ANIMALS[ta].emoji}!`, 'bad');
-    return;
-  }
+  farm[fa] -= fc;
+  state.herd[fa] += fc;
+  farm[ta] += tc;
+  state.herd[ta] -= tc;
 
-  farm[fa] -= totalFrom;
-  state.herd[fa] += totalFrom;
-  farm[ta] += totalTo;
-  state.herd[ta] -= totalTo;
+  if (!fromRemote && state.mode === 'online') {
+    sendNet({ type: 'TRADE', fc, tc, fa, ta });
+  }
 
   SoundFX.playTrade();
-  showFloatingDelta(`slot-p${pNum}-${fa}`, `-${totalFrom} ${ANIMALS[fa].emoji}`, false);
-  showFloatingDelta(`slot-p${pNum}-${ta}`, `+${totalTo} ${ANIMALS[ta].emoji}`, true);
+  showFloatingDelta(`slot-p${pNum}-${fa}`, `-${fc} ${ANIMALS[fa].emoji}`, false);
+  showFloatingDelta(`slot-p${pNum}-${ta}`, `+${tc} ${ANIMALS[ta].emoji}`, true);
 
-  log(`🔄 <strong>${name}</strong> traded: ${totalFrom}${ANIMALS[fa].emoji} ➔ ${totalTo}${ANIMALS[ta].emoji}`, 'trade');
+  log(`${playerTag(p)} traded ${fc}${ANIMALS[fa].emoji} ➔ ${tc}${ANIMALS[ta].emoji}`, 'trade');
 
   updateCounts();
   checkWin(p);
@@ -804,31 +1200,23 @@ function executeExchange(fc, tc, fa, ta, times = 1) {
 function runAITurn() {
   if (state.gameOver || state.currentPlayer !== 1) return;
 
-  log(`🤖 <em>${state.names[1]} is analyzing the farm and calculating optimal trades...</em>`, '');
-
-  // 1. Pre-roll trading
   setTimeout(() => {
     if (state.gameOver) return;
     smartAIExchange(1);
 
-    // 2. Roll dice
     setTimeout(() => {
       if (state.gameOver) return;
       executeThrow(1);
 
-      // 3. Post-roll trading & finish turn
       setTimeout(() => {
         if (state.gameOver) return;
         smartAIExchange(1);
         setTimeout(() => {
-          if (!state.gameOver) {
-            advanceTurn();
-          }
-        }, 800);
+          if (!state.gameOver) advanceTurn();
+        }, 850);
       }, 1000);
-
-    }, 800);
-  }, 700);
+    }, 700);
+  }, 600);
 }
 
 function smartAIExchange(playerIdx) {
@@ -843,41 +1231,30 @@ function smartAIExchange(playerIdx) {
     loops++;
     let changed = false;
 
-    // Guard dog defense if surplus animals available
     if (farm.owca >= 2 && farm.malyPies === 0 && state.herd.malyPies > 0) {
-      farm.owca -= 1;
-      state.herd.owca += 1;
-      farm.malyPies += 1;
-      state.herd.malyPies -= 1;
-      log(`🤖 <strong>AI</strong> bought a Small Dog 🐕 for Fox defense.`, 'trade');
-      changed = true;
-      didTrade = true;
+      farm.owca -= 1; state.herd.owca += 1;
+      farm.malyPies += 1; state.herd.malyPies -= 1;
+      log(`${playerTag(playerIdx)} traded 1🐑 ➔ 1🐕`, 'trade');
+      changed = true; didTrade = true;
     }
 
     if (farm.krowa >= 2 && farm.duzyPies === 0 && state.herd.duzyPies > 0) {
-      farm.krowa -= 1;
-      state.herd.krowa += 1;
-      farm.duzyPies += 1;
-      state.herd.duzyPies -= 1;
-      log(`🤖 <strong>AI</strong> bought a Big Dog 🐩 for Wolf defense.`, 'trade');
-      changed = true;
-      didTrade = true;
+      farm.krowa -= 1; state.herd.krowa += 1;
+      farm.duzyPies += 1; state.herd.duzyPies -= 1;
+      log(`${playerTag(playerIdx)} traded 1🐮 ➔ 1🐩`, 'trade');
+      changed = true; didTrade = true;
     }
 
-    // Upgrades to higher tiers
     for (let i = 0; i < order.length - 1; i++) {
       const from = order[i];
       const to = order[i + 1];
       const rate = rates[i];
 
       while (farm[from] >= rate && state.herd[to] >= 1) {
-        farm[from] -= rate;
-        state.herd[from] += rate;
-        farm[to] += 1;
-        state.herd[to] -= 1;
-        log(`🤖 <strong>AI</strong> traded ${rate}${ANIMALS[from].emoji} ➔ 1${ANIMALS[to].emoji}`, 'trade');
-        changed = true;
-        didTrade = true;
+        farm[from] -= rate; state.herd[from] += rate;
+        farm[to] += 1; state.herd[to] -= 1;
+        log(`${playerTag(playerIdx)} traded ${rate}${ANIMALS[from].emoji} ➔ 1${ANIMALS[to].emoji}`, 'trade');
+        changed = true; didTrade = true;
       }
     }
 
@@ -892,16 +1269,14 @@ function smartAIExchange(playerIdx) {
 }
 
 // =============================================================================
-//  WIN CONDITION & CELEBRATION
+//  WIN CONDITION & MODALS
 // =============================================================================
 
 function checkWin(playerIdx) {
   const farm = state.farms[playerIdx];
-  const won = WIN_ANIMALS.every(a => farm[a] >= 1);
-  if (won) {
+  if (WIN_ANIMALS.every(a => farm[a] >= 1)) {
     state.gameOver = true;
-    const name = state.names[playerIdx];
-    showWinner(name);
+    showWinner(state.names[playerIdx]);
     return true;
   }
   return false;
@@ -909,17 +1284,56 @@ function checkWin(playerIdx) {
 
 function showWinner(name) {
   SoundFX.playVictory();
-  document.getElementById('winnerName').textContent = `${name} is the Super Farmer!`;
+  document.getElementById('winnerName').textContent = `${name} wins!`;
+
+  const primaryBtn = document.getElementById('winnerPrimaryBtn');
+  const menuBtn = document.getElementById('winnerMenuBtn');
+  if (state.mode === 'online' && net.connected) {
+    primaryBtn.textContent = '🔄 Rematch';
+    primaryBtn.disabled = false;
+    menuBtn.style.display = 'inline-block';
+  } else {
+    primaryBtn.textContent = '🔄 Play Again';
+    primaryBtn.disabled = false;
+    menuBtn.style.display = 'none';
+  }
+
   document.getElementById('winnerScreen').style.display = 'flex';
-  document.getElementById('throwBtn').disabled = true;
-  document.getElementById('endTurnBtn').disabled = true;
+  updateTurnUI();
   launchConfetti();
-  log(`🏆 <strong>${name}</strong> collected all 5 species and won the match!`, 'good');
+  log(`🏆 <strong>${name}</strong> won the game!`, 'good');
+}
+
+function handleWinnerPlayAgain() {
+  SoundFX.playClick();
+  if (state.mode === 'online' && net.connected) {
+    if (net.isHost) {
+      net.startingPlayerNext = net.startingPlayerNext === 0 ? 1 : 0;
+      startOnlineMatch(state.names[0], state.names[1], net.startingPlayerNext);
+      sendNet({
+        type: 'START_GAME',
+        names: [state.names[0], state.names[1]],
+        startingPlayer: net.startingPlayerNext,
+      });
+    } else {
+      const primaryBtn = document.getElementById('winnerPrimaryBtn');
+      primaryBtn.disabled = true;
+      primaryBtn.textContent = '⏳ Starting rematch...';
+      sendNet({ type: 'REMATCH_REQUEST' });
+    }
+  } else {
+    restartToStartScreen();
+  }
 }
 
 function restartToStartScreen() {
+  if (state.mode === 'online' || net.peer || net.conn) {
+    cleanupOnlineSession(true);
+  }
   document.getElementById('winnerScreen').style.display = 'none';
   document.getElementById('gameScreen').style.display = 'none';
+  document.getElementById('disconnectBanner').style.display = 'none';
+  document.getElementById('onlineRoomPill').style.display = 'none';
   document.getElementById('startScreen').style.display = 'flex';
 }
 
@@ -931,17 +1345,16 @@ function launchConfetti() {
   canvas.height = window.innerHeight;
 
   const colors = ['#f5c518', '#10e88a', '#38b6ff', '#a855f7', '#ff4757', '#ffffff'];
-  const pieces = Array.from({ length: 150 }, () => ({
+  const pieces = Array.from({ length: 140 }, () => ({
     x: Math.random() * canvas.width,
     y: Math.random() * -canvas.height,
-    w: 8 + Math.random() * 8,
-    h: 6 + Math.random() * 6,
+    w: 8 + Math.random() * 7,
+    h: 6 + Math.random() * 5,
     color: colors[Math.floor(Math.random() * colors.length)],
     rot: Math.random() * Math.PI * 2,
     vx: (Math.random() - 0.5) * 4,
     vy: 2 + Math.random() * 5,
     vr: (Math.random() - 0.5) * 0.2,
-    opacity: 1,
   }));
 
   let frame = 0;
@@ -949,27 +1362,19 @@ function launchConfetti() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     pieces.forEach(p => {
       ctx.save();
-      ctx.globalAlpha = p.opacity;
       ctx.translate(p.x, p.y);
       ctx.rotate(p.rot);
       ctx.fillStyle = p.color;
       ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
       ctx.restore();
-      p.x += p.vx;
-      p.y += p.vy;
-      p.rot += p.vr;
+      p.x += p.vx; p.y += p.vy; p.rot += p.vr;
       if (p.y > canvas.height) { p.y = -20; p.x = Math.random() * canvas.width; }
     });
-    frame++;
-    if (frame < 400) requestAnimationFrame(draw);
+    if (++frame < 360) requestAnimationFrame(draw);
     else ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
   draw();
 }
-
-// =============================================================================
-//  MODALS & WINDOW MANAGEMENT
-// =============================================================================
 
 function toggleRules() {
   SoundFX.playClick();
@@ -983,14 +1388,12 @@ function closeRulesOnBg(e) {
 
 function promptNewGame() {
   SoundFX.playClick();
-  const m = document.getElementById('confirmResetModal');
-  if (m) m.style.display = 'flex';
+  document.getElementById('confirmResetModal').style.display = 'flex';
 }
 
 function closeResetModal() {
   SoundFX.playClick();
-  const m = document.getElementById('confirmResetModal');
-  if (m) m.style.display = 'none';
+  document.getElementById('confirmResetModal').style.display = 'none';
 }
 
 function closeResetOnBg(e) {
@@ -1002,11 +1405,32 @@ function confirmResetGame() {
   restartToStartScreen();
 }
 
-// =============================================================================
-//  INITIAL LOAD
-// =============================================================================
-
 window.onload = function () {
   const icon = document.getElementById('soundIcon');
   if (icon && SoundFX.muted) icon.textContent = '🔇';
+
+  // Auto-open Join Room if opened via an invite link (?room=XXXXX)
+  const params = new URLSearchParams(window.location.search);
+  const roomFromUrl = (params.get('room') || '').trim().toUpperCase();
+  if (roomFromUrl) {
+    selectMode('online');
+    selectOnlineTab('join');
+    const codeInput = document.getElementById('joinRoomCodeInput');
+    if (codeInput) codeInput.value = roomFromUrl;
+    setOnlineStatus(`Invited to room ${roomFromUrl}. Enter your name and click Join!`, 'success');
+  }
+
+  // Allow pressing Enter in room code input to join
+  const codeInput = document.getElementById('joinRoomCodeInput');
+  if (codeInput) {
+    codeInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') joinOnlineRoom();
+    });
+  }
 };
+
+window.addEventListener('beforeunload', () => {
+  if (net.conn && net.conn.open) {
+    sendNet({ type: 'LEAVE' });
+  }
+});
