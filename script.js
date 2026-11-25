@@ -1507,9 +1507,40 @@ function closeRulesOnBg(e) {
   if (e.target === document.getElementById('rulesModal')) toggleRules();
 }
 
-function promptNewGame() {
+let pendingConfirmAction = 'exit';
+
+function openConfirmModal(action, icon, title, text, confirmLabel, isRestartStyle = false) {
+  pendingConfirmAction = action;
   SoundFX.playClick();
+  document.getElementById('confirmModalIcon').textContent = icon;
+  document.getElementById('confirmModalTitle').textContent = title;
+  document.getElementById('confirmModalText').textContent = text;
+  const btn = document.getElementById('confirmModalBtn');
+  btn.textContent = confirmLabel;
+  btn.classList.toggle('restart-style', isRestartStyle);
   document.getElementById('confirmResetModal').style.display = 'flex';
+}
+
+function promptRestartMatch() {
+  if (state.mode === 'online' && !net.connected) {
+    promptExitGame();
+    return;
+  }
+  const desc = state.mode === 'online'
+    ? 'This will reset the match for both players in the room.'
+    : 'Reset all farms and start fresh with the same players.';
+  openConfirmModal('restart', '🔄', 'Restart match?', desc, 'Restart', true);
+}
+
+function promptExitGame() {
+  const desc = state.mode === 'online'
+    ? 'You will leave the online room and return to the main menu.'
+    : 'Current game progress will be lost.';
+  openConfirmModal('exit', '🚪', 'Exit to menu?', desc, 'Exit Game', false);
+}
+
+function promptNewGame() {
+  promptExitGame();
 }
 
 function closeResetModal() {
@@ -1521,10 +1552,75 @@ function closeResetOnBg(e) {
   if (e.target === document.getElementById('confirmResetModal')) closeResetModal();
 }
 
-function confirmResetGame() {
+function confirmModalAction() {
   closeResetModal();
-  restartToStartScreen();
+  if (pendingConfirmAction === 'restart') {
+    restartCurrentMatch();
+  } else {
+    restartToStartScreen();
+  }
 }
+
+function restartCurrentMatch() {
+  if (state.mode === 'online') {
+    if (!net.connected) {
+      restartToStartScreen();
+      return;
+    }
+    if (net.isHost) {
+      net.startingPlayerNext = net.startingPlayerNext === 0 ? 1 : 0;
+      startOnlineMatch(state.names[0], state.names[1], net.startingPlayerNext);
+      sendNet({
+        type: 'START_GAME',
+        names: [state.names[0], state.names[1]],
+        startingPlayer: net.startingPlayerNext,
+        target: net.peerSenderId,
+      });
+    } else {
+      sendNet({ type: 'REMATCH_REQUEST' });
+      log('🔄 Requested a match restart...', 'info');
+    }
+    return;
+  }
+
+  // Local 2P or vs AI: instant fresh match with same players & mode
+  state = {
+    mode: state.mode,
+    names: [...state.names],
+    herd: makeFarm(true),
+    farms: [makeFarm(), makeFarm()],
+    currentPlayer: 0,
+    phase: 'BEFORE_ROLL',
+    showAllTrades: false,
+    gameOver: false,
+    rolling: false,
+  };
+
+  document.getElementById('winnerScreen').style.display = 'none';
+  document.getElementById('diceResult').textContent = `${state.names[0]}, roll the dice!`;
+  document.getElementById('diceSubText').textContent = '';
+  document.getElementById('die1').querySelector('.die-face').textContent = '🎲';
+  document.getElementById('die2').querySelector('.die-face').textContent = '🎲';
+  document.getElementById('logContent').innerHTML = '';
+  document.getElementById('toggleAllTradesBtn').textContent = 'Show all rates ▾';
+
+  renderAll();
+  log(`🔄 Match restarted — ${playerTag(0)} goes first`, 'info');
+}
+
+function toggleFullscreen() {
+  SoundFX.playClick();
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen?.().catch(() => {});
+  } else {
+    document.exitFullscreen?.().catch(() => {});
+  }
+}
+
+document.addEventListener('fullscreenchange', () => {
+  const btn = document.getElementById('fullscreenToggleBtn');
+  if (btn) btn.classList.toggle('active', Boolean(document.fullscreenElement));
+});
 
 window.onload = function () {
   const icon = document.getElementById('soundIcon');

@@ -109,8 +109,10 @@
         <div class="header-right">
           <button class="header-btn" id="bankToggleBtn" onclick="toggleBank()" title="Show/Hide Bank Stock">🏦 Bank</button>
           <button class="header-btn" onclick="toggleRules()" title="Game Rules">📖 Rules</button>
+          <button class="header-btn" id="restartMatchBtn" onclick="promptRestartMatch()" title="Restart Current Match">🔄 Restart</button>
+          <button class="header-btn header-btn-danger" id="exitGameBtn" onclick="promptExitGame()" title="Exit to Main Menu">🚪 Exit</button>
           <button class="icon-btn" id="soundToggleBtn" onclick="toggleSound()" title="Toggle Sound"><span id="soundIcon">🔊</span></button>
-          <button class="icon-btn" onclick="promptNewGame()" title="New Game">🔄</button>
+          <button class="icon-btn" id="fullscreenToggleBtn" onclick="toggleFullscreen()" title="Toggle Fullscreen"><span id="fullscreenIcon">⛶</span></button>
         </div>
       </header>
 
@@ -320,15 +322,15 @@
       </div>
     </div>
 
-    <!-- ===== CONFIRM RESET MODAL ===== -->
+    <!-- ===== CONFIRM ACTION MODAL (RESTART / EXIT) ===== -->
     <div id="confirmResetModal" style="display: none;" onclick="closeResetOnBg(event)">
       <div class="confirm-content">
-        <div class="confirm-icon">🔄</div>
-        <h3>Start a new game?</h3>
-        <p>Current progress will be lost.</p>
+        <div class="confirm-icon" id="confirmModalIcon">🔄</div>
+        <h3 id="confirmModalTitle">Restart match?</h3>
+        <p id="confirmModalText">Current progress will be lost.</p>
         <div class="confirm-actions">
           <button class="btn-modal-cancel" onclick="closeResetModal()">Cancel</button>
-          <button class="btn-modal-confirm" onclick="confirmResetGame()">New Game</button>
+          <button class="btn-modal-confirm" id="confirmModalBtn" onclick="confirmModalAction()">Restart</button>
         </div>
       </div>
     </div>
